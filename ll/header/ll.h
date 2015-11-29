@@ -1,3 +1,4 @@
+#define MAX_OPEN_DISK 64
 #define BLCK_SIZE 1024 // 1024 Octects
 #define PATH_SATATFS "/tfs/" // Emplacement des disques TFS
 
@@ -14,6 +15,7 @@ typedef struct{
 
 typedef struct{
 	disk_id id;
+	int disk_descriptor;
 	int size;
 } DISK;
 
