@@ -6,9 +6,10 @@
 #define _NOERROR 0
 #define _DISK_NOT_FOUND 1
 #define _DISK_UNMOUNTED 2
-#define _BLCK_NOT_FOUND 3
+#define _NUM_BLCK_TOO_BIG 3
 #define _DISK_ID_TOO_BIG 4
 #define _DISK_ID_EXIST 5
+#define _READ_ERROR 6
 
 // Définition des types
 typedef int error;
@@ -16,7 +17,8 @@ typedef int disk_id;
 typedef char block[BLCK_SIZE];
 
 typedef struct{
-	int disk_descriptor;
+	FILE *disk_descriptor;
+	int nb_blocks; 
 	int flag;
 } DISK;
 
@@ -31,3 +33,4 @@ error stop_disk(disk_id id);
 //_________________________________________________________
 // Fonctions auxiliaires
 char* strError(error err);
+void printBlock(block b);
