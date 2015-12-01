@@ -10,8 +10,15 @@
 #define _MOUNTED 1
 
 // Prototype des fonctions internes 
+//*****************************************************************************************
+// ATTENTION : Pour le moment ces deux fonctions font le travail exacte de read_block et write_block
+// La différence résidera dans le fait qu'elles devront lire ou écrire un paquet de block, stockés dans un buffeur
+// pour accroitre les performances. Les deux autres, read_block et write_block, se contenteront de lire ou
+// ecrire dans le buffeur puis de le flush (avec l'appel à write_physical) quand il est plein. 
 error read_physical_block(disk_id id, block b, uint32_t num);
 error write_physical_block(disk_id id, block b, uint32_t num);
+//*****************************************************************************************
+
 
 // Emplacements disponibles pour les disques
 DISK _disks[MAX_OPEN_DISK] = {};
@@ -22,7 +29,7 @@ int main(int argc, char *argv[]){
 
 	block block_lu;
 	error start = start_disk("zDisk.tfs", 0);
-	error stop = stop_disk(0);
+	//error stop = stop_disk(0);
 
 	// Si le disque est bien démarré 
 	if(start == 0){
@@ -114,6 +121,7 @@ error stop_disk(disk_id id){
 	if((_disks[id].flag & _MOUNTED) != 0){
 		_disks[id].flag = _UNMOUNTED;
 		fclose(_disks[id].disk_descriptor);	
+		_disks[id].disk_descriptor = 0; // Remise du pointeur à zero
 		return _NOERROR;
 	}
 	else
