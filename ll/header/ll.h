@@ -10,11 +10,13 @@
 #define _DISK_ID_TOO_BIG 4
 #define _DISK_ID_EXIST 5
 #define _READ_ERROR 6
+#define _WRITE_ERROR 7
+#define _POS_IN_BLCK_TOO_BIG 8
 
 // Définition des types
 typedef int error;
 typedef int disk_id;
-typedef char block[BLCK_SIZE];
+typedef unsigned char block[BLCK_SIZE];
 
 typedef struct{
 	FILE *disk_descriptor;
@@ -34,3 +36,5 @@ error stop_disk(disk_id id);
 // Fonctions auxiliaires
 char* strError(error err);
 void printBlock(block b);
+void blockToLtleIndian(block b);
+error writeIntToBlock(block b, int position, uint32_t number);

@@ -28,13 +28,26 @@ DISK _disks[MAX_OPEN_DISK] = {};
 int main(int argc, char *argv[]){
 
 	block block_lu;
+	block block_a_ecrire;
+
 	error start = start_disk("zDisk.tfs", 0);
-	//error stop = stop_disk(0);
+	
 
 	// Si le disque est bien démarré 
 	if(start == 0){
-		// On tente de lire le block x 
-		error read = read_physical_block(0, block_lu, 0);
+
+		// Ecriture de quelques nombres à des positions différentes
+		writeIntToBlock(block_a_ecrire, 0, 0);
+		writeIntToBlock(block_a_ecrire, 2, 1000);
+		writeIntToBlock(block_a_ecrire, 9, 0);
+		writeIntToBlock(block_a_ecrire, 13, 0);
+		writeIntToBlock(block_a_ecrire, 7, 0);
+
+		// Ecriture sur le block 0
+		error write = write_block(0, block_a_ecrire, 0);
+
+		// On tente de lire le block 0
+		error read = read_block(0, block_lu, 0);
 		// Si la lecture à réussie, on l'affiche
 		if(read == 0){
 			printBlock(block_lu);
@@ -42,10 +55,15 @@ int main(int argc, char *argv[]){
 		else{
 			fprintf(stderr, "Erreur %d: %s\n", read, strError(read));
 		}
+
+		//printBlock(block_a_ecrire);
 	}
 	else{
 		fprintf(stderr, "Erreur %d: %s\n", start, strError(start));
 	}
+
+	// On démonte le disque
+	error stop = stop_disk(0);
 	return 0;
 }
 //_____________________________________________________________
@@ -77,7 +95,30 @@ error read_physical_block(disk_id id, block b, uint32_t num){
 }
 
 error write_physical_block(disk_id id, block b, uint32_t num){
-	return _NOERROR;
+
+	// Si le disque est monté
+	if((_disks[id].flag & _MOUNTED) != 0){
+		// Si le block voulu ne dépasse pas le nombre de blocks du disque
+		if(num < _disks[id].nb_blocks){
+			// On déplace le curseur a la position du block N (num) : num * BLCK_SIZE
+			fseek(_disks[id].disk_descriptor, num * BLCK_SIZE, SEEK_SET);
+
+			blockToLtleIndian(b); // Passage en little indian
+
+			// On écrit les 1024 prochains caractères, ce qui correspond au bloc N
+			if((fwrite(b, BLCK_SIZE, 1, _disks[id].disk_descriptor)) == -1)
+				return _WRITE_ERROR;
+
+			// Remise à zero de la position du curseur
+			rewind(_disks[id].disk_descriptor);
+
+			return _NOERROR;	
+		}
+		else
+			return _NUM_BLCK_TOO_BIG;
+	}
+	else
+		return _DISK_UNMOUNTED;
 }
 
 //_____________________________________________________________
@@ -128,6 +169,16 @@ error stop_disk(disk_id id){
 		return _DISK_UNMOUNTED;
 }
 
+error read_block(disk_id id, block b, uint32_t num){
+	return read_physical_block(id, b, num);
+}
+error write_block(disk_id id, block b, uint32_t num){
+	return write_physical_block(id, b, num);
+}
+error sync_disk(disk_id id){
+	return _NOERROR;
+}
+
 //_____________________________________________________________
 // Fonctions auxiliaires
 char* strError(error err){
@@ -143,6 +194,10 @@ char* strError(error err){
 		return "L'id demandée existe déjà.";
 	if(err == _READ_ERROR)
 		return "La lecture du block à échoué.";
+	if(err == _WRITE_ERROR)
+		return "L'écriture du block à échoué.";
+	if(err == _POS_IN_BLCK_TOO_BIG)
+		return "La position est supérieur à BLCK_SIZE(1024).";
 
 	return "Aucune erreur.";
 }
@@ -157,4 +212,40 @@ void printBlock(block b){
 		if(nb_block_print%8 == 0)
 			printf("\n");
 	}
+}
+
+void blockToLtleIndian(block b){
+	unsigned char octet_0, octet_1, octet_2, octet_3;
+	// Inversion par paquet de 4 octects
+	for(int i=0; i < BLCK_SIZE; i+=4){
+		octet_0 = b[i];
+		octet_1 = b[i+1];
+		octet_2 = b[i+2];
+		octet_3 = b[i+3];
+
+		b[i] = octet_3;
+		b[i+1] = octet_2;
+		b[i+2] = octet_1;
+		b[i+3] = octet_0;
+	}
+}
+
+error writeIntToBlock(block b, int position, uint32_t number){
+	// Si la position est < BLCK_SIZE
+	if(position < BLCK_SIZE){
+
+		position = (position * 4);
+
+		b[position] = (number >> 24) & 0xFF;
+		b[position+1] = (number >> 16) & 0xFF;
+		b[position+2] = (number >> 8) & 0xFF;
+		b[position+3] = number & 0xFF;
+
+		//printf("%d\n", number);
+		//printf("%02hhX%02hhX%02hhX%02hhX\n", (unsigned char)b[3], (unsigned char)b[2], (unsigned char)b[1], (unsigned char)b[0]);
+
+		return _NOERROR;
+	}
+	else
+		return _POS_IN_BLCK_TOO_BIG;
 }
