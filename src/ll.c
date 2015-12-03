@@ -153,7 +153,7 @@ char* strError(error err){
 	if(err == _WRITE_ERROR)
 		return "L'écriture du block à échoué.";
 	if(err == _POS_IN_BLCK_TOO_BIG)
-		return "La position est supérieur à BLCK_SIZE(1024).";
+		return "La position est supérieur à BLCK_SIZE / 4 (256).";
 
 	return "Aucune erreur.";
 }
@@ -187,8 +187,8 @@ void blockToLtleIndian(block b){
 }
 
 error writeIntToBlock(block b, int position, uint32_t number){
-	// Si la position est < BLCK_SIZE
-	if(position < BLCK_SIZE){
+	// Si la position est < (BLCK_SIZE/4) 
+	if(position < (BLCK_SIZE/4)){
 		position = (position * 4);
 
 		b[position] = (number >> 24);
@@ -203,8 +203,8 @@ error writeIntToBlock(block b, int position, uint32_t number){
 }
 
 int readBlockToInt(block b, int position){
-	// Si la position est < BLCK_SIZE
-	if(position < BLCK_SIZE){
+	// Si la position est < (BLCK_SIZE/4)
+	if(position < (BLCK_SIZE/4)){
 		position = (position * 4);
 
 		uint32_t number = 0;
@@ -217,4 +217,16 @@ int readBlockToInt(block b, int position){
 	}
 	else
 		return -1;
+}
+
+error eraseBlock(block b, int debut, int fin){
+	if( (debut < (BLCK_SIZE/4)) && (fin <= (BLCK_SIZE/4)) && (debut <= fin) ){
+
+		for(int i=debut; i < fin; i++)
+			writeIntToBlock(b, i, 0);
+
+		return _NOERROR;
+	}
+	else
+		return _POS_IN_BLCK_TOO_BIG;
 }

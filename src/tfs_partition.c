@@ -60,14 +60,18 @@ int main(int argc, char *argv[]){
 
 						printf("%s", "Le disque est déjà partitionné, voulez-vous l'écraser ? (y/n) ");
 						scanf("%s", validation);
-						if( (strcmp(validation, "Y") == 0) || (strcmp(validation, "y") == 0) )
-							//eraseBlock(block b, int debut, int fin);
-							printf("%s\n", "On efface !");
+
+						if( (strcmp(validation, "Y") == 0) || (strcmp(validation, "y") == 0) ){
+							// On remet à zero le premier block, sauf le premier nombre (la taille)
+							error erase = eraseBlock(b, 1, 256); 
+							if(erase != 0){
+								fprintf(stderr, "Erreur %d: %s\n", erase, strError(erase));
+							}
+						}
 						else
 							exit(1);
-
 					}
-					
+				
 					// Modification du block b
 					// On insère le nombre en position 1 (sur 1024)
 					writeIntToBlock(b, 1, nb_partitions);
@@ -75,7 +79,7 @@ int main(int argc, char *argv[]){
 					for(int i=0; i<nb_partitions; i++){
 						writeIntToBlock(b, i+2, partitions[i]); 
 					}
-
+					
 					//printBlock(b);
 					// Ecriture sur le block0 du block modifié
 					error write = write_block(0, b, 0);
