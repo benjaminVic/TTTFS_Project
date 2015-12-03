@@ -35,3 +35,9 @@ tar: mrproper
 	
 mrproper: clean
 	rm -rf $(BIN_PATH)tfs_create $(BIN_PATH)tfs_partition $(BIN_PATH)tfs_analyze $(BIN_PATH)libll
+
+install:
+	sudo ./_INSTALL.sh
+
+remove:
+	sudo ./_REMOVE.sh
