@@ -6,12 +6,12 @@ SRC_PATH = src/
 HEADER_PATH = header/
 BIN_PATH = bin/
 
-all: $(BIN_PATH)$(EXEC)
+all: $(EXEC)
 
 ll: $(BIN_PATH)ll.o
-	$(CC) -o $@ $^
+	$(CC) -o $(BIN_PATH)$@ $^
 
-$(BIN_PATH)ll.o: $(HEADER_PATH)ll.h
+ll.o: $(HEADER_PATH)ll.h
 
 $(BIN_PATH)%.o: $(SRC_PATH)%.c
 	$(CC) -o $@ -c $< $(CFLAGS)

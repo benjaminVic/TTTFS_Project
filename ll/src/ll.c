@@ -86,6 +86,7 @@ error read_physical_block(disk_id id, block b, uint32_t num){
 
 			// Remise à zero de la position du curseur
 			rewind(_disks[id].disk_descriptor);
+			blockToLtleIndian(b); // Repassage en little indian pour revenir en big indian (plus simple à manipuler)
 
 			return _NOERROR;	
 		}
