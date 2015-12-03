@@ -3,6 +3,8 @@ echo '=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-='
 echo ' Installation des outils TTTFS'
 echo '=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-='
 echo ' - Installation des librairies'
+echo '  > libll.so ...'
+#cp ll/bin/libll.so /usr/lib
 echo ' --------------------------------------------------------'
 echo ' - Installation des commandes'
 echo '  > tfs_create ...'

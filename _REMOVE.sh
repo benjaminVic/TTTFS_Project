@@ -3,6 +3,8 @@ echo '=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-='
 echo ' Suppression des outils TTTFS'
 echo '=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-='
 echo ' - Suppression des librairies'
+echo '  > libll.so ...'
+#rm /usr/lib/libll.so
 echo ' --------------------------------------------------------'
 echo ' - Suppression des commandes'
 echo '  > tfs_create ...'

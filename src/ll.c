@@ -24,53 +24,6 @@ error write_physical_block(disk_id id, block b, uint32_t num);
 DISK _disks[MAX_OPEN_DISK] = {};
 
 //_____________________________________________________________
-// ZONE DE TEST (Les opérations ici ce feront dans la couche supérieure)
-int main(int argc, char *argv[]){
-
-	block block_lu;
-	block block_a_ecrire;
-
-	error start = start_disk("zDisk.tfs", 0);
-	// Si le disque est bien démarré 
-	if(start == 0){
-		// Ecriture de quelques nombres à des positions différentes
-		writeIntToBlock(block_a_ecrire, 0, 1000);
-
-		// Ecriture sur le block 0
-		error write = write_block(0, block_a_ecrire, 0);
-		if(write != 0)
-			fprintf(stderr, "Erreur %d: %s\n", write, strError(write));
-
-		// On tente de lire le block 0
-		error read = read_block(0, block_lu, 0);
-		// Si la lecture à réussie, on l'affiche
-		if(read == 0){
-
-			uint32_t firstInt = firstInt = readBlockToInt(block_lu, 0);
-			printf("%d\n", firstInt);
-
-			printBlock(block_lu);
-		}
-		else{
-			fprintf(stderr, "Erreur %d: %s\n", read, strError(read));
-		}
-
-		//printBlock(block_a_ecrire);
-	}
-	else{
-		fprintf(stderr, "Erreur %d: %s\n", start, strError(start));
-	}
-
-	// On démonte le disque
-	error stop = stop_disk(0);
-	if(stop != 0)
-		fprintf(stderr, "Erreur %d: %s\n", stop, strError(stop));
-
-	return 0;
-}
-//_____________________________________________________________
-
-//_____________________________________________________________
 // Fonctions internes non visibles de l'extérieurs (Pas de signatures dans le .h)
 error read_physical_block(disk_id id, block b, uint32_t num){
 
@@ -238,10 +191,10 @@ error writeIntToBlock(block b, int position, uint32_t number){
 	if(position < BLCK_SIZE){
 		position = (position * 4);
 
-		b[position] = (number >> 24) & 0xFF;
-		b[position+1] = (number >> 16) & 0xFF;
-		b[position+2] = (number >> 8) & 0xFF;
-		b[position+3] = number & 0xFF;
+		b[position] = (number >> 24);
+		b[position+1] = (number >> 16);
+		b[position+2] = (number >> 8);
+		b[position+3] = (number);
 
 		return _NOERROR;
 	}
@@ -255,10 +208,10 @@ int readBlockToInt(block b, int position){
 		position = (position * 4);
 
 		uint32_t number = 0;
-		number |= (b[position+3] << 24);
-		number |= (b[position+2] << 16);
-		number |= (b[position+1] << 8);
-		number |= (b[position]);
+		number |= (b[position] << 24);
+		number |= (b[position+1] << 16);
+		number |= (b[position+2] << 8);
+		number |= (b[position+3]);
 
 		return number;
 	}
