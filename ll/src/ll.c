@@ -31,25 +31,24 @@ int main(int argc, char *argv[]){
 	block block_a_ecrire;
 
 	error start = start_disk("zDisk.tfs", 0);
-	
-
 	// Si le disque est bien démarré 
 	if(start == 0){
-
 		// Ecriture de quelques nombres à des positions différentes
-		writeIntToBlock(block_a_ecrire, 0, 0);
-		writeIntToBlock(block_a_ecrire, 2, 1000);
-		writeIntToBlock(block_a_ecrire, 9, 0);
-		writeIntToBlock(block_a_ecrire, 13, 0);
-		writeIntToBlock(block_a_ecrire, 7, 0);
+		writeIntToBlock(block_a_ecrire, 0, 1000);
 
 		// Ecriture sur le block 0
 		error write = write_block(0, block_a_ecrire, 0);
+		if(write != 0)
+			fprintf(stderr, "Erreur %d: %s\n", write, strError(write));
 
 		// On tente de lire le block 0
 		error read = read_block(0, block_lu, 0);
 		// Si la lecture à réussie, on l'affiche
 		if(read == 0){
+
+			uint32_t firstInt = firstInt = readBlockToInt(block_lu, 0);
+			printf("%d\n", firstInt);
+
 			printBlock(block_lu);
 		}
 		else{
@@ -64,6 +63,9 @@ int main(int argc, char *argv[]){
 
 	// On démonte le disque
 	error stop = stop_disk(0);
+	if(stop != 0)
+		fprintf(stderr, "Erreur %d: %s\n", stop, strError(stop));
+
 	return 0;
 }
 //_____________________________________________________________
@@ -233,7 +235,6 @@ void blockToLtleIndian(block b){
 error writeIntToBlock(block b, int position, uint32_t number){
 	// Si la position est < BLCK_SIZE
 	if(position < BLCK_SIZE){
-
 		position = (position * 4);
 
 		b[position] = (number >> 24) & 0xFF;
@@ -241,11 +242,25 @@ error writeIntToBlock(block b, int position, uint32_t number){
 		b[position+2] = (number >> 8) & 0xFF;
 		b[position+3] = number & 0xFF;
 
-		//printf("%d\n", number);
-		//printf("%02hhX%02hhX%02hhX%02hhX\n", (unsigned char)b[3], (unsigned char)b[2], (unsigned char)b[1], (unsigned char)b[0]);
-
 		return _NOERROR;
 	}
 	else
 		return _POS_IN_BLCK_TOO_BIG;
+}
+
+int readBlockToInt(block b, int position){
+	// Si la position est < BLCK_SIZE
+	if(position < BLCK_SIZE){
+		position = (position * 4);
+
+		uint32_t number = 0;
+		number |= (b[position+3] << 24);
+		number |= (b[position+2] << 16);
+		number |= (b[position+1] << 8);
+		number |= (b[position]);
+
+		return number;
+	}
+	else
+		return -1;
 }

@@ -8,4 +8,7 @@ echo ' - Suppression des commandes'
 echo '  > tfs_create ...'
 rm /usr/local/bin/tfs_create
 rm -rf /opt/tfs_create/
+echo '  > tfs_analyze ...'
+rm /usr/local/bin/tfs_analyze
+rm -rf /opt/tfs_analyze/
 echo '=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-='

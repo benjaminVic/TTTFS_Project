@@ -38,3 +38,4 @@ char* strError(error err);
 void printBlock(block b);
 void blockToLtleIndian(block b);
 error writeIntToBlock(block b, int position, uint32_t number);
+int readBlockToInt(block b, int position);
