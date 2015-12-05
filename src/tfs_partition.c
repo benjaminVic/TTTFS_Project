@@ -73,7 +73,7 @@ int main(int argc, char *argv[]){
 					}
 				
 					// Modification du block b
-					// On insère le nombre en position 1 (sur 1024)
+					// On insère le nombre en position 1 (sur 255)
 					writeIntToBlock(b, 1, nb_partitions);
 					// On insère les tailles à la suite  
 					for(int i=0; i<nb_partitions; i++){

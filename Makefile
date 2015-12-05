@@ -31,10 +31,10 @@ clean:
 	rm -rf $(BIN_PATH)*.o
 
 tar: mrproper
-	tar cf TTTFS_Project.tar README.txt Makefile bin/ src/ header/ _INSTALL.sh _REMOVE.sh
+	tar cf TTTFS_Project.tar Makefile bin/ src/ header/ _INSTALL.sh _REMOVE.sh
 	
 mrproper: clean
-	rm -rf $(BIN_PATH)tfs_create $(BIN_PATH)tfs_partition $(BIN_PATH)tfs_analyze $(BIN_PATH)libll
+	rm -rf $(BIN_PATH)tfs_create $(BIN_PATH)tfs_partition $(BIN_PATH)tfs_analyze $(BIN_PATH)libll.so
 
 install:
 	sudo ./_INSTALL.sh
