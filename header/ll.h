@@ -1,6 +1,16 @@
 #define MAX_OPEN_DISK 64
 #define BLCK_SIZE 1024 // 1024 Octects
 
+#define TTTFS_MAGIC_NUMBER 827541076 //(hex = 0x31534654)
+#define TTTFS_VOLUME_BLOCK_SIZE 1024
+#define TTTFS_VOLUME_BLOCK_COUNT(n) n
+#define TTTFS_VOLUME_FREE_BLOCK_COUNT(n) n
+#define TTTFS_VOLUME_FIRST_FREE_BLOCK(n) n
+#define TTTFS_VOLUME_MAX_FILE_COUNT(n) n
+#define TTTFS_VOLUME_FREE_FILE_COUNT(n) n
+#define TTTFS_VOLUME_FIRST_FREE_FILE(n) n
+
+
 // Erreurs
 #define _NOERROR 0
 #define _DISK_NOT_FOUND 1
@@ -11,6 +21,8 @@
 #define _READ_ERROR 6
 #define _WRITE_ERROR 7
 #define _POS_IN_BLCK_TOO_BIG 8
+#define _PARTITION_NOT_FOUND 9
+#define _MAX_FILES_TOO_BIG 10
 
 // Définition des types
 typedef int error;

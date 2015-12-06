@@ -143,6 +143,10 @@ char* strError(error err){
 		return "L'écriture du block à échoué.";
 	if(err == _POS_IN_BLCK_TOO_BIG)
 		return "La position est supérieur à BLCK_SIZE / 4 (256).";
+	if(err == _PARTITION_NOT_FOUND)
+		return "La partition n'existe pas sur le disque.";
+	if(err == _MAX_FILES_TOO_BIG)
+		return "Pas assez d'espace sur la partition.";
 
 	return "Aucune erreur.";
 }
