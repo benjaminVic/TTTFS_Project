@@ -28,53 +28,47 @@ DISK _disks[MAX_OPEN_DISK] = {};
 error read_physical_block(disk_id id, block b, uint32_t num){
 
 	// Si le disque est monté
-	if((_disks[id].flag & _MOUNTED) != 0){
-		// Si le block voulu ne dépasse pas le nombre de blocks du disque
-		if(num < _disks[id].nb_blocks){
-			// On déplace le curseur a la position du block N (num) : num * BLCK_SIZE
-			fseek(_disks[id].disk_descriptor, num * BLCK_SIZE, SEEK_SET);
-			// On lit les 1024 prochains caractères, ce qui correspond au bloc N
-			if((fread(b, BLCK_SIZE, 1, _disks[id].disk_descriptor)) == -1)
-				return _READ_ERROR;
-
-			// Remise à zero de la position du curseur
-			rewind(_disks[id].disk_descriptor);
-			blockToLtleIndian(b); // Repassage en little indian pour revenir en big indian (plus simple à manipuler)
-
-			return _NOERROR;	
-		}
-		else
-			return _NUM_BLCK_TOO_BIG;
-	}
-	else
+	if((_disks[id].flag & _MOUNTED) == 0)
 		return _DISK_UNMOUNTED;
+	// Si le block voulu ne dépasse pas le nombre de blocks du disque
+	if(!(num < _disks[id].nb_blocks))
+		return _NUM_BLCK_TOO_BIG;
+	
+	// On déplace le curseur a la position du block N (num) : num * BLCK_SIZE
+	fseek(_disks[id].disk_descriptor, num * BLCK_SIZE, SEEK_SET);
+	// On lit les 1024 prochains caractères, ce qui correspond au bloc N
+	if((fread(b, BLCK_SIZE, 1, _disks[id].disk_descriptor)) == -1)
+		return _READ_ERROR;
+
+	// Remise à zero de la position du curseur
+	rewind(_disks[id].disk_descriptor);
+	blockToLtleIndian(b); // Repassage en little indian pour revenir en big indian (plus simple à manipuler)
+
+	return _NOERROR;
 }
 
 error write_physical_block(disk_id id, block b, uint32_t num){
 
 	// Si le disque est monté
-	if((_disks[id].flag & _MOUNTED) != 0){
-		// Si le block voulu ne dépasse pas le nombre de blocks du disque
-		if(num < _disks[id].nb_blocks){
-			// On déplace le curseur a la position du block N (num) : num * BLCK_SIZE
-			fseek(_disks[id].disk_descriptor, num * BLCK_SIZE, SEEK_SET);
-
-			blockToLtleIndian(b); // Passage en little indian
-
-			// On écrit les 1024 prochains caractères, ce qui correspond au bloc N
-			if((fwrite(b, BLCK_SIZE, 1, _disks[id].disk_descriptor)) == -1)
-				return _WRITE_ERROR;
-
-			// Remise à zero de la position du curseur
-			rewind(_disks[id].disk_descriptor);
-
-			return _NOERROR;	
-		}
-		else
-			return _NUM_BLCK_TOO_BIG;
-	}
-	else
+	if((_disks[id].flag & _MOUNTED) == 0)
 		return _DISK_UNMOUNTED;
+	// Si le block voulu ne dépasse pas le nombre de blocks du disque
+	if(!(num < _disks[id].nb_blocks))
+		return _NUM_BLCK_TOO_BIG;
+
+	// On déplace le curseur a la position du block N (num) : num * BLCK_SIZE
+	fseek(_disks[id].disk_descriptor, num * BLCK_SIZE, SEEK_SET);
+
+	blockToLtleIndian(b); // Passage en little indian
+
+	// On écrit les 1024 prochains caractères, ce qui correspond au bloc N
+	if((fwrite(b, BLCK_SIZE, 1, _disks[id].disk_descriptor)) == -1)
+		return _WRITE_ERROR;
+
+	// Remise à zero de la position du curseur
+	rewind(_disks[id].disk_descriptor);
+
+	return _NOERROR;
 }
 
 //_____________________________________________________________
@@ -82,35 +76,30 @@ error write_physical_block(disk_id id, block b, uint32_t num){
 error start_disk(char *name, disk_id id){
 
 	// Si l'id demandée est comprise entre 0 et MAX_OPEN_DISK-1
-	if(id < MAX_OPEN_DISK){
-		// Si l'emplacement est libre pour cette id (Le disque n'est pas monté)
-		if(_disks[id].disk_descriptor == 0){
-
-			// Ouverture en lecture écriture (Sans création du fichier)
-			FILE* disk_file = fopen(name, "r+");
-			// Si le disque (le fichier) existe
-			if(disk_file != NULL){
-				// On déplace le curseur, on calcule le nombre de block
-				fseek(disk_file, 0, SEEK_END);
-				
-				// On le démarre en lui affectant le descripteur de fichier et le flags _MOUNTED
-				_disks[id].disk_descriptor = disk_file;
-				_disks[id].nb_blocks = (ftell(disk_file) / BLCK_SIZE);
-				_disks[id].flag = _MOUNTED;
-
-				// On remet la position du curseur au début
-				rewind(disk_file);
-
-				return _NOERROR;
-			}	
-			else
-				return _DISK_NOT_FOUND;
-		}
-		else
-			return _DISK_ID_EXIST;
-	}
-	else
+	if(!(id < MAX_OPEN_DISK))
 		return _DISK_ID_TOO_BIG;
+	// Si l'emplacement est libre pour cette id (Le disque n'est pas monté)
+	if(_disks[id].disk_descriptor != 0)
+		return _DISK_ID_EXIST;
+
+	// Ouverture en lecture écriture (Sans création du fichier)
+	FILE* disk_file = fopen(name, "r+");
+	// Si le disque (le fichier) existe
+	if(disk_file == NULL)
+		return _DISK_NOT_FOUND;
+
+	// On déplace le curseur, on calcule le nombre de block
+	fseek(disk_file, 0, SEEK_END);
+	
+	// On le démarre en lui affectant le descripteur de fichier et le flags _MOUNTED
+	_disks[id].disk_descriptor = disk_file;
+	_disks[id].nb_blocks = (ftell(disk_file) / BLCK_SIZE);
+	_disks[id].flag = _MOUNTED;
+
+	// On remet la position du curseur au début
+	rewind(disk_file);
+
+	return _NOERROR;
 }
 
 error stop_disk(disk_id id){

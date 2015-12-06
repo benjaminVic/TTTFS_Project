@@ -3,7 +3,6 @@
 #include <string.h>
 #include <unistd.h>
 #include "../header/tfs_format.h"
-#include "../header/tfs.h"
 
 int main(int argc, char *argv[]){
 	// Test la présence du bon nombre d'arguments
@@ -27,6 +26,22 @@ int main(int argc, char *argv[]){
 	 		}
 	 	}
 	 	disk_name = argv[argc-1];
+
+	 	error init = init_partition(disk_name, num_partition, file_count);
+
+	 	if(init != 0){
+	 		fprintf(stderr, "Erreur %d: %s\n", init, strError(init));
+	 		exit(1);
+	 	}
 	}
 	return 0;
+}
+
+error init_partition(char* disk_name, int partition, uint32_t file_count){
+	// Vérification de l'existance du disque
+	if(access(disk_name, F_OK) != 0){
+		return _DISK_NOT_FOUND;
+	}
+
+	return _NOERROR;
 }

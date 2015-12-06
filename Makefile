@@ -16,7 +16,7 @@ tfs_partition: $(BIN_PATH)tfs_partition.o $(BIN_PATH)ll.o
 tfs_analyze: $(BIN_PATH)tfs_analyze.o $(BIN_PATH)ll.o
 	$(CC) -o $(BIN_PATH)$@ $^
 
-tfs_format: $(BIN_PATH)tfs_format.o $(BIN_PATH)tfs.o
+tfs_format: $(BIN_PATH)tfs_format.o $(BIN_PATH)tfs.o $(BIN_PATH)ll.o
 	$(CC) -o $(BIN_PATH)$@ $^
 
 libll: $(BIN_PATH)ll.o
