@@ -4,6 +4,8 @@ echo ' Installation des outils TTTFS'
 echo '=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-='
 echo ' - Copie des fichiers dans /opt/TTTFS/ ...'
 cp -rf . /opt/TTTFS
+echo ' - Création du répertoire /tfs_disks/ ...'
+mkdir /tfs_disks
 echo ' --------------------------------------------------------'
 echo ' - Installation des librairies'
 echo '  > libll.so ...'

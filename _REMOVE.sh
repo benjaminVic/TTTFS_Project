@@ -4,6 +4,8 @@ echo ' Suppression des outils TTTFS'
 echo '=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-='
 echo ' - Suppression de /opt/TTTFS/ ...'
 rm -rf /opt/TTTFS/
+echo ' - Suppression du répertoire /tfs_disks/ ...'
+rm -rf /tfs_disks
 echo ' --------------------------------------------------------'
 echo ' - Suppression des librairies'
 echo '  > libll.so ...'

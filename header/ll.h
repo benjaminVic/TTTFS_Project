@@ -1,6 +1,5 @@
 #define MAX_OPEN_DISK 64
 #define BLCK_SIZE 1024 // 1024 Octects
-#define PATH_TFS "/tfs/" // Emplacement des disques TFS
 
 // Erreurs
 #define _NOERROR 0
