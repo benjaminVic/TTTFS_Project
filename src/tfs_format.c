@@ -5,6 +5,7 @@
 #include "../header/tfs_format.h"
 
 int main(int argc, char *argv[]){
+
 	int num_partition;
 	int file_count;
 	char* disk_name;
@@ -146,6 +147,5 @@ error init_partition(char* disk_name, int partition, uint32_t file_count){
 	}
 
 	stop_disk(0);
-
 	return _NOERROR;
 }

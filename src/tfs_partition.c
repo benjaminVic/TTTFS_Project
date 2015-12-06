@@ -6,7 +6,12 @@
 #include "../header/ll.h"
 
 int main(int argc, char *argv[]){
+
 	uint32_t nb_partitions = 0;
+	uint32_t number_of_blocks = 0;
+	int total_partitions_size = 0;
+	block b;
+	
 	// Test la présence du bon nombre d'arguments
 	if(!((argc >= 4) && (argc % 2 == 0))){
 		printf("%s\n", "Usage: tfs_partition -p size [-p size]... [name]");
@@ -15,9 +20,8 @@ int main(int argc, char *argv[]){
 
 	nb_partitions = (argc-2)/2;
 	int partitions[nb_partitions];
-	int total_partitions_size = 0;
-	int pos_tab = 0;
 
+	int pos_tab = 0;
 	// Récupération des tailles
 	for(int i=1; i<(argc-1); i+=2){
  		if(strcmp(argv[i], "-p") == 0){
@@ -37,11 +41,9 @@ int main(int argc, char *argv[]){
 		exit(1);
 	}
 
-	uint32_t number_of_blocks = 0;
-	block b;
 	// On monte le disque en lui donnant l'id 0
 	error start = start_disk(argv[argc-1], 0); 
-	// Si le disque est bien démarré 
+	// Si le disque n'est pas monté
 	if(start != 0){
 		fprintf(stderr, "Erreur %d: %s\n", start, strError(start));
 		exit(1);
@@ -51,10 +53,7 @@ int main(int argc, char *argv[]){
 	// Si la lecture à réussie
 	if(read != 0){
 		fprintf(stderr, "Erreur %d: %s\n", read, strError(read));
-		// On démonte le disque
-		error stop = stop_disk(0);
-		if(stop != 0)
-			fprintf(stderr, "Erreur %d: %s\n", stop, strError(stop));
+		stop_disk(0);
 		exit(1);
 	}
 
@@ -64,10 +63,7 @@ int main(int argc, char *argv[]){
 	// Vérification de la place disponible
 	if(number_of_blocks <= total_partitions_size){
 		fprintf(stderr, "La taille du disque n'est pas suffisante : %d blocks\n", (number_of_blocks-1));
-		// On démonte le disque
-		error stop = stop_disk(0);
-		if(stop != 0)
-			fprintf(stderr, "Erreur %d: %s\n", stop, strError(stop));
+		stop_disk(0);
 		exit(1);
 	}
 
@@ -75,7 +71,6 @@ int main(int argc, char *argv[]){
 	if(readBlockToInt(b,1) != 0){
 
 		char validation[16];
-
 		printf("%s", "Le disque est déjà partitionné, voulez-vous l'écraser ? (y/n) ");
 		scanf("%s", validation);
 
@@ -90,10 +85,7 @@ int main(int argc, char *argv[]){
 				fprintf(stderr, "Erreur %d: %s\n", erase_disk, strError(erase_disk));
 		}
 		else{
-			// On démonte le disque
-			error stop = stop_disk(0);
-			if(stop != 0)
-				fprintf(stderr, "Erreur %d: %s\n", stop, strError(stop));
+			stop_disk(0);
 			exit(1);
 		}
 	}
@@ -111,17 +103,10 @@ int main(int argc, char *argv[]){
 	error write = write_block(0, b, 0);
 	if(write != 0){
 		fprintf(stderr, "Erreur %d: %s\n", write, strError(write));
-		// On démonte le disque
-		error stop = stop_disk(0);
-		if(stop != 0)
-			fprintf(stderr, "Erreur %d: %s\n", stop, strError(stop));
+		stop_disk(0);
 		exit(1);
 	}
 
-	// On démonte le disque
-	error stop = stop_disk(0);
-	if(stop != 0)
-		fprintf(stderr, "Erreur %d: %s\n", stop, strError(stop));
-
+	stop_disk(0);
 	return 0;
 }
