@@ -81,9 +81,13 @@ int main(int argc, char *argv[]){
 
 		if( (strcmp(validation, "Y") == 0) || (strcmp(validation, "y") == 0) ){
 			// On remet à zero le premier block, sauf le premier nombre (la taille)
-			error erase = eraseBlock(b, 1, 256); 
-			if(erase != 0)
-				fprintf(stderr, "Erreur %d: %s\n", erase, strError(erase));
+			error erase_blck = eraseBlock(b, 1, 256); 
+			if(erase_blck != 0)
+				fprintf(stderr, "Erreur %d: %s\n", erase_blck, strError(erase_blck));
+			// On efface le disque (du block 0 au block 999)
+			error erase_disk = eraseDisk(0, 1, number_of_blocks);
+			if(erase_disk != 0)
+				fprintf(stderr, "Erreur %d: %s\n", erase_disk, strError(erase_disk));
 		}
 		else{
 			// On démonte le disque

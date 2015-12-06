@@ -117,7 +117,7 @@ error init_partition(char* disk_name, int partition, uint32_t file_count){
 	writeIntToBlock(infosPartition, 6, TTTFS_VOLUME_FREE_FILE_COUNT(file_count));
 	writeIntToBlock(infosPartition, 7, TTTFS_VOLUME_FIRST_FREE_FILE(1)); // Le 0 sera déjà pris pour la racine
 
-	printBlock(infosPartition);
+	//printBlock(infosPartition);
 
 	// Ecriture du Description block
 	error write_desc_block = write_block(0, infosPartition, first_partition_blck);

@@ -223,3 +223,25 @@ error eraseBlock(block b, int debut, int fin){
 	else
 		return _POS_IN_BLCK_TOO_BIG;
 }
+
+error eraseDisk(disk_id id, int block_debut, int block_fin){
+	block b;
+	for(int i=block_debut; i<block_fin; i++){
+		//printf("Erase block %d\n", i);
+		// Lecture du block i
+		error read = read_block(id, b, 999);
+		if(read != 0)
+			return read;
+
+		// Efface le block i
+		error erase_blck = eraseBlock(b, 0, 256); 
+		if(erase_blck != 0)
+			return erase_blck;
+
+		// Ecrit le block i
+		error write = write_block(id, b, 999);
+		if(write != 0)
+			return write;
+	}
+	return _NOERROR;
+}

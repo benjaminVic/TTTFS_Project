@@ -10,7 +10,6 @@
 #define TTTFS_VOLUME_FREE_FILE_COUNT(n) n
 #define TTTFS_VOLUME_FIRST_FREE_FILE(n) n
 
-
 // Erreurs
 #define _NOERROR 0
 #define _DISK_NOT_FOUND 1
@@ -51,3 +50,4 @@ void blockToLtleIndian(block b);
 error writeIntToBlock(block b, int position, uint32_t number);
 int readBlockToInt(block b, int position);
 error eraseBlock(block b, int debut, int fin);
+error eraseDisk(disk_id id, int block_debut, int block_fin);

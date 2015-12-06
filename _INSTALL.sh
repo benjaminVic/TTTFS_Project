@@ -18,4 +18,6 @@ echo '  > tfs_partition ...'
 ln -s /opt/TTTFS/bin/tfs_partition /usr/local/bin/tfs_partition
 echo '  > tfs_analyze ...'
 ln -s /opt/TTTFS/bin/tfs_analyze /usr/local/bin/tfs_analyze
+echo '  > tfs_format ...'
+ln -s /opt/TTTFS/bin/tfs_format /usr/local/bin/tfs_format
 echo '=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-='
