@@ -52,19 +52,14 @@ error init_partition(char* disk_name, int partition, uint32_t file_count){
 	
 	// On monte le disque en lui donnant l'id 0
 	error start = start_disk(disk_name, 0); 
-	// Si le disque est bien démarré 
 	if(start != 0){
 		return start;
 	}
 
 	// On tente de lire le block 0
 	error read_infos_disk = read_block(0, infosDisk, 0);
-	// Si la lecture à réussie
 	if(read_infos_disk != 0){
-		// On démonte le disque
-		error stop = stop_disk(0);
-		if(stop != 0)
-			fprintf(stderr, "Erreur %d: %s\n", stop, strError(stop));
+		stop_disk(0);
 		return read_infos_disk;
 	}
 
@@ -78,7 +73,7 @@ error init_partition(char* disk_name, int partition, uint32_t file_count){
 	uint32_t partitionsSizes[number_of_partitions];
 	//(+2 pour arriver aux entiers des tailles de partition présentes)
 	for(int i=0; i<number_of_partitions; i++){
-			partitionsSizes[i] = readBlockToInt(infosDisk, i+2);
+		partitionsSizes[i] = readBlockToInt(infosDisk, i+2);
 	}
 
 	size_of_partition = partitionsSizes[partition];
@@ -87,10 +82,17 @@ error init_partition(char* disk_name, int partition, uint32_t file_count){
 		first_partition_blck += partitionsSizes[i];
 	}
 
-	// Calcul de la taille nécessaire pour la table des fichiers 
-	size_of_table = (file_count / 1024) + 1;
+	// Calcul de la taille nécessaire pour la table des fichiers (64o par entrée)
+	// Dans un block de de la table on peut mettre 1024/64 = 16 fichiers
+	// Il faut donc (file_count / 16) + 1 blocks pour la table 
+	size_of_table = (file_count / 16) + 1;
 	// Calcul de la taille nécessaire total pour la partition
 	total_size = 1 + size_of_table + file_count;
+
+	printf("Premier block de p%d = %d\n", partition, first_partition_blck);
+	printf("Nombre de fichiers = %d\n", file_count);
+	printf("Taille de la table = %d\n", size_of_table);
+	printf("Total nécessaire = %d | Partition size = %d\n", total_size, size_of_partition);
 
 	// Vérification de la place disponible
 	if(total_size > size_of_partition)
@@ -98,13 +100,29 @@ error init_partition(char* disk_name, int partition, uint32_t file_count){
 
 	// On récupère le premier block de la partition
 	error read_desc_block = read_block(0, infosPartition, first_partition_blck);
-	// Si la lecture échoue
 	if(read_desc_block != 0){
-		// On démonte le disque
-		error stop = stop_disk(0);
-		if(stop != 0)
-			fprintf(stderr, "Erreur %d: %s\n", stop, strError(stop));
+		stop_disk(0);
 		return read_desc_block;
+	}
+
+	// Confirmation du formatage
+	char validation[16];
+	printf("%s", "Le formatage entraine la perte de données, êtes-vous sûr ?(y/n) ");
+	scanf("%s", validation);
+
+	if( (strcmp(validation, "Y") == 0) || (strcmp(validation, "y") == 0) ){
+		// On remet à zero le premier block de la partition
+		error erase_blck = eraseBlock(infosPartition, 0, 256); 
+		if(erase_blck != 0)
+			fprintf(stderr, "Erreur %d: %s\n", erase_blck, strError(erase_blck));
+		// On efface la partition (de first_partition_blck à size_of_partition+1)
+		error erase_disk = eraseDisk(0, first_partition_blck, size_of_partition+1);
+		if(erase_disk != 0)
+			fprintf(stderr, "Erreur %d: %s\n", erase_disk, strError(erase_disk));
+	}
+	else{
+		stop_disk(0);
+		exit(1);
 	}
 
 	// On écrit les données dans le premier block de la partition (Description block)
@@ -123,25 +141,11 @@ error init_partition(char* disk_name, int partition, uint32_t file_count){
 	error write_desc_block = write_block(0, infosPartition, first_partition_blck);
 	if(write_desc_block != 0){
 		fprintf(stderr, "Erreur %d: %s\n", write_desc_block, strError(write_desc_block));
-		// On démonte le disque
-		error stop = stop_disk(0);
-		if(stop != 0)
-			fprintf(stderr, "Erreur %d: %s\n", stop, strError(stop));
+		stop_disk(0);
 		exit(1);
 	}
 
-	/*
-	printf("Partition %d = %d\n", partition, size_of_partition);
-	printf("first_partition_blck = %d\n", first_partition_blck);
-	printf("file_count = %d\n", file_count);
-	printf("size_of_table = %d\n", size_of_table);
-	printf("total_size = %d\n", total_size);
-	*/
-
-	// On démonte le disque
-	error stop = stop_disk(0);
-	if(stop != 0)
-		fprintf(stderr, "Erreur %d: %s\n", stop, strError(stop));
+	stop_disk(0);
 
 	return _NOERROR;
 }

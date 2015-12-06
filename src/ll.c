@@ -227,7 +227,6 @@ error eraseBlock(block b, int debut, int fin){
 error eraseDisk(disk_id id, int block_debut, int block_fin){
 	block b;
 	for(int i=block_debut; i<block_fin; i++){
-		//printf("Erase block %d\n", i);
 		// Lecture du block i
 		error read = read_block(id, b, 999);
 		if(read != 0)
