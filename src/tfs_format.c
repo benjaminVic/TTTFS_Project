@@ -137,7 +137,6 @@ error init_partition(char* disk_name, int partition, uint32_t file_count){
 	writeIntToBlock(infosPartition, 7, TTTFS_VOLUME_FIRST_FREE_FILE(1)); // Le 0 sera déjà pris pour la racine
 
 	//printBlock(infosPartition);
-
 	// Ecriture du Description block
 	error write_desc_block = write_block(0, infosPartition, first_partition_blck);
 	if(write_desc_block != 0){
@@ -145,6 +144,15 @@ error init_partition(char* disk_name, int partition, uint32_t file_count){
 		stop_disk(0);
 		exit(1);
 	}
+
+	// Description du fichier racine
+	FILE_ENTRY racine;
+	racine.tfs_size = 1024;
+	racine.tfs_type = TFS_DIRECTORY;
+	racine.tfs_next_free = 1;
+
+	// Remplissage de la table des fichiers
+	block files_table[size_of_table];
 
 	stop_disk(0);
 	return _NOERROR;

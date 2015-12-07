@@ -1,6 +1,7 @@
 #define MAX_OPEN_DISK 64
 #define BLCK_SIZE 1024 // 1024 Octects
 
+// Description d'une partition
 #define TTTFS_MAGIC_NUMBER 827541076 //(hex = 0x31534654)
 #define TTTFS_VOLUME_BLOCK_SIZE 1024
 #define TTTFS_VOLUME_BLOCK_COUNT(n) n
@@ -9,6 +10,15 @@
 #define TTTFS_VOLUME_MAX_FILE_COUNT(n) n
 #define TTTFS_VOLUME_FREE_FILE_COUNT(n) n
 #define TTTFS_VOLUME_FIRST_FREE_FILE(n) n
+
+// Types de fichiers
+#define TFS_REGULAR 0
+#define TFS_DIRECTORY 1
+#define TFS_PSEUDO 2
+
+// Sous type pseudos
+#define TFS_DATE 0
+#define TFS_DISK 1
 
 // Erreurs
 #define _NOERROR 0
@@ -30,9 +40,19 @@ typedef unsigned char block[BLCK_SIZE];
 
 typedef struct{
 	FILE *disk_descriptor;
-	int nb_blocks; 
+	uint32_t nb_blocks; 
 	int flag;
 } DISK;
+
+typedef struct{
+	uint32_t tfs_size;
+	int tfs_type;
+	int tfs_subtype;
+	uint32_t tfs_direct[10];
+	uint32_t tfs_indirect1;
+	uint32_t tfs_indirect2;
+	uint32_t tfs_next_free;
+} FILE_ENTRY;
 
 //_________________________________________________________
 // Fonctions principales

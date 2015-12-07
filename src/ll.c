@@ -27,10 +27,10 @@ DISK _disks[MAX_OPEN_DISK] = {};
 // Fonctions internes non visibles de l'extérieurs (Pas de signatures dans le .h)
 error read_physical_block(disk_id id, block b, uint32_t num){
 
-	// Si le disque est monté
+	// Si le disque n'est pas monté
 	if((_disks[id].flag & _MOUNTED) == 0)
 		return _DISK_UNMOUNTED;
-	// Si le block voulu ne dépasse pas le nombre de blocks du disque
+	// Si le block voulu dépasse le nombre de blocks du disque
 	if(!(num < _disks[id].nb_blocks))
 		return _NUM_BLCK_TOO_BIG;
 	
@@ -49,10 +49,10 @@ error read_physical_block(disk_id id, block b, uint32_t num){
 
 error write_physical_block(disk_id id, block b, uint32_t num){
 
-	// Si le disque est monté
+	// Si le disque n'est pas monté
 	if((_disks[id].flag & _MOUNTED) == 0)
 		return _DISK_UNMOUNTED;
-	// Si le block voulu ne dépasse pas le nombre de blocks du disque
+	// Si le block voulu dépasse le nombre de blocks du disque
 	if(!(num < _disks[id].nb_blocks))
 		return _NUM_BLCK_TOO_BIG;
 
@@ -75,16 +75,16 @@ error write_physical_block(disk_id id, block b, uint32_t num){
 // Fonctions externes
 error start_disk(char *name, disk_id id){
 
-	// Si l'id demandée est comprise entre 0 et MAX_OPEN_DISK-1
+	// Si l'id demandée n'est pas comprise entre 0 et MAX_OPEN_DISK-1
 	if(!(id < MAX_OPEN_DISK))
 		return _DISK_ID_TOO_BIG;
-	// Si l'emplacement est libre pour cette id (Le disque n'est pas monté)
+	// Si l'emplacement n'est pas libre pour cette id
 	if(_disks[id].disk_descriptor != 0)
 		return _DISK_ID_EXIST;
 
 	// Ouverture en lecture écriture (Sans création du fichier)
 	FILE* disk_file = fopen(name, "r+");
-	// Si le disque (le fichier) existe
+	// Si le disque (le fichier) n'existe pas
 	if(disk_file == NULL)
 		return _DISK_NOT_FOUND;
 
@@ -228,7 +228,7 @@ error eraseDisk(disk_id id, int block_debut, int block_fin){
 	block b;
 	for(int i=block_debut; i<block_fin; i++){
 		// Lecture du block i
-		error read = read_block(id, b, 999);
+		error read = read_block(id, b, i);
 		if(read != 0)
 			return read;
 
@@ -238,7 +238,7 @@ error eraseDisk(disk_id id, int block_debut, int block_fin){
 			return erase_blck;
 
 		// Ecrit le block i
-		error write = write_block(id, b, 999);
+		error write = write_block(id, b, i);
 		if(write != 0)
 			return write;
 	}
