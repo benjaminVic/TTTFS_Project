@@ -46,8 +46,8 @@ typedef struct{
 
 typedef struct{
 	uint32_t tfs_size;
-	int tfs_type;
-	int tfs_subtype;
+	uint32_t tfs_type;
+	uint32_t tfs_subtype;
 	uint32_t tfs_direct[10];
 	uint32_t tfs_indirect1;
 	uint32_t tfs_indirect2;

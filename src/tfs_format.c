@@ -149,6 +149,7 @@ error init_partition(char* disk_name, int partition, uint32_t file_count){
 	FILE_ENTRY racine;
 	racine.tfs_size = 1024;
 	racine.tfs_type = TFS_DIRECTORY;
+	racine.tfs_direct[0] = size_of_table;
 	racine.tfs_next_free = 1;
 
 	// Remplissage de la table des fichiers
