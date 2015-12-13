@@ -20,6 +20,10 @@
 #define TFS_DATE 0
 #define TFS_DISK 1
 
+// Flags
+#define _UNMOUNTED 0
+#define _MOUNTED 1
+
 // Erreurs
 #define _NOERROR 0
 #define _DISK_NOT_FOUND 1
@@ -53,6 +57,11 @@ typedef struct{
 	uint32_t tfs_indirect2;
 	uint32_t tfs_next_free;
 } FILE_ENTRY;
+
+typedef struct{
+	uint32_t number;
+	char *name[28];
+} DIR_ENTRY;
 
 //_________________________________________________________
 // Fonctions principales

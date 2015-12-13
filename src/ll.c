@@ -5,10 +5,6 @@
 #include <fcntl.h>
 #include "../header/ll.h"
 
-// Flags
-#define _UNMOUNTED 0
-#define _MOUNTED 1
-
 // Prototype des fonctions internes 
 //*****************************************************************************************
 // ATTENTION : Pour le moment ces deux fonctions font le travail exacte de read_block et write_block
