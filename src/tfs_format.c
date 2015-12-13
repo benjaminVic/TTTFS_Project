@@ -85,8 +85,11 @@ error init_partition(char* disk_name, int partition, uint32_t file_count){
 
 	// Calcul de la taille nécessaire pour la table des fichiers (64o par entrée)
 	// Dans un block de de la table on peut mettre 1024/64 = 16 fichiers
-	// Il faut donc (file_count / 16) + 1 blocks pour la table 
-	size_of_table = (file_count / 16) + 1;
+	if((file_count % 16) == 0)
+		size_of_table = (file_count / 16);
+	else
+		size_of_table = (file_count / 16) + 1;
+
 	// Calcul de la taille nécessaire total pour la partition
 	total_size = 1 + size_of_table + file_count;
 
@@ -130,10 +133,10 @@ error init_partition(char* disk_name, int partition, uint32_t file_count){
 	writeIntToBlock(infosPartition, 0, TTTFS_MAGIC_NUMBER);
 	writeIntToBlock(infosPartition, 1, TTTFS_VOLUME_BLOCK_SIZE);
 	writeIntToBlock(infosPartition, 2, TTTFS_VOLUME_BLOCK_COUNT(size_of_partition));
-	writeIntToBlock(infosPartition, 3, TTTFS_VOLUME_FREE_BLOCK_COUNT(file_count));
-	writeIntToBlock(infosPartition, 4, TTTFS_VOLUME_FIRST_FREE_BLOCK(size_of_table));
-	writeIntToBlock(infosPartition, 5, TTTFS_VOLUME_MAX_FILE_COUNT(file_count));
-	writeIntToBlock(infosPartition, 6, TTTFS_VOLUME_FREE_FILE_COUNT(file_count));
+	writeIntToBlock(infosPartition, 3, TTTFS_VOLUME_FREE_BLOCK_COUNT(file_count-1)); // Le nombre de fichier - la racine
+	writeIntToBlock(infosPartition, 4, TTTFS_VOLUME_FIRST_FREE_BLOCK(size_of_table+1)); // Le block suivant la table des fichiers
+	writeIntToBlock(infosPartition, 5, TTTFS_VOLUME_MAX_FILE_COUNT(file_count)); 
+	writeIntToBlock(infosPartition, 6, TTTFS_VOLUME_FREE_FILE_COUNT(file_count-1)); // Nombre de fichier - la racine
 	writeIntToBlock(infosPartition, 7, TTTFS_VOLUME_FIRST_FREE_FILE(1)); // Le 0 sera déjà pris pour la racine
 
 	//printBlock(infosPartition);
@@ -145,15 +148,61 @@ error init_partition(char* disk_name, int partition, uint32_t file_count){
 		exit(1);
 	}
 
-	// Description du fichier racine
-	FILE_ENTRY racine;
-	racine.tfs_size = 1024;
-	racine.tfs_type = TFS_DIRECTORY;
-	racine.tfs_direct[0] = size_of_table;
-	racine.tfs_next_free = 1;
+	//______________________________________________________________________________
+	// Initialisation de la table des fichiers
+	block tabBlocks[size_of_table]; // Tableau de blocks
 
-	// Remplissage de la table des fichiers
-	block files_table[size_of_table];
+	FILES_TABLE table;
+	table.size_table = size_of_table;
+	table.blocks = tabBlocks;
+	
+	if(initFilesTable(&table) != 0){
+		fprintf(stderr, "Erreur lors de l'initialisation de la table.");
+		exit(1);
+	}
+	//______________________________________________________________________________
+
+	// Création de l'entrée racine
+	FILE_ENTRY racine; 
+	initFileEntry(&racine);
+	setTypeFile(&racine, 1);
+	setSubTypeFile(&racine, 0);
+	addDirectBlock(&racine, size_of_table+1);
+	setNextFreeFile(&racine, 0);
+
+	// Ecriture de la racine dans la table
+	writeFileEntryToTable(&table, racine, 0);
+
+	//printBlock(table.blocks[0]);
+	//printBlock(table.blocks[1]);
+
+	// Ecriture de la table sur le disque
+	for(int i=0; i < size_of_table; i++){
+		write_block(0, table.blocks[i], (first_partition_blck + 1 + i));
+	}
+
+	block b_racine;
+	int pos_blck_racine = first_partition_blck + size_of_table + 2;
+	// On tente de lire le block concernant le fichier 0 (la racine)
+	read_block(0, b_racine, pos_blck_racine);
+
+	printBlock(b_racine);
+
+	// Création des entrées de répertoire "." et ".." de la racine
+	DIR_ENTRY dot;
+	DIR_ENTRY double_dot;
+
+	dot.number = 0;
+	dot.name[0] = '.';
+	dot.name[1] = '\0';
+
+	double_dot.number = 0;
+	double_dot.name[0] = '.';
+	double_dot.name[1] = '.';
+	double_dot.name[2] = '\0';
+
+	//writeDirEntryToBlock();
+
 
 	stop_disk(0);
 	return _NOERROR;

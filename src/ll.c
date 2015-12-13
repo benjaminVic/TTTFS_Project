@@ -143,6 +143,8 @@ char* strError(error err){
 		return "La partition n'existe pas sur le disque.";
 	if(err == _MAX_FILES_TOO_BIG)
 		return "Pas assez d'espace sur la partition.";
+	if(err == _POS_IN_TABLE_TOO_BIG)
+		return "Pas assez de place dans la table des fichiers.";
 
 	return "Aucune erreur.";
 }
@@ -191,7 +193,7 @@ error writeIntToBlock(block b, int position, uint32_t number){
 		return _POS_IN_BLCK_TOO_BIG;
 }
 
-int readBlockToInt(block b, int position){
+uint32_t readBlockToInt(block b, int position){
 	// Si la position est < (BLCK_SIZE/4)
 	if(position < (BLCK_SIZE/4)){
 		position = (position * 4);
@@ -240,3 +242,94 @@ error eraseDisk(disk_id id, int block_debut, int block_fin){
 	}
 	return _NOERROR;
 }
+
+int initFilesTable(FILES_TABLE *table){
+	if(table == NULL)
+		return -1;
+
+	int size_of_table = table->size_table;
+
+	// Mise à 0 de tout les octets de tout les blocs
+	for(int i=0; i < size_of_table; i++){
+		eraseBlock(table->blocks[i], 0, 256);
+	}
+	
+	// Création d'une entrée vierge
+	FILE_ENTRY file; 
+	initFileEntry(&file);
+
+	// Ecriture d'une entrée vierge dans tout les emplacements de la table
+	for(int i=0; i < 16 * size_of_table; i++){
+		// Initialisation de la chaine des entrées libres
+		if(i < (16 * size_of_table)-1)
+			setNextFreeFile(&file, i+1);
+		else
+			setNextFreeFile(&file, i);
+		// Ecriture de l'entrée
+		writeFileEntryToTable(table, file, i);
+	}
+
+	return 0;
+}
+
+error writeFileEntryToTable(FILES_TABLE *table, FILE_ENTRY file_ent, int file_pos){
+	if(file_pos >= 16 * table->size_table)
+		return _POS_IN_TABLE_TOO_BIG;
+	else{
+		int indx_blck_tab = file_pos / 16;
+		int pos_in_blck = (file_pos % 16)*16;
+
+		// Ecriture de l'entrée de fichier
+		writeIntToBlock(table->blocks[indx_blck_tab], pos_in_blck, file_ent.tfs_size);
+		writeIntToBlock(table->blocks[indx_blck_tab], (pos_in_blck + 1), file_ent.tfs_type);
+		writeIntToBlock(table->blocks[indx_blck_tab], (pos_in_blck + 2), file_ent.tfs_subtype);
+		for(int i=0; i<10; i++){
+			writeIntToBlock(table->blocks[indx_blck_tab], (pos_in_blck + 3 + i), file_ent.tfs_direct[i]);
+		}
+		writeIntToBlock(table->blocks[indx_blck_tab], (pos_in_blck + 13), file_ent.tfs_indirect1);
+		writeIntToBlock(table->blocks[indx_blck_tab], (pos_in_blck + 14), file_ent.tfs_indirect2);
+		writeIntToBlock(table->blocks[indx_blck_tab], (pos_in_blck + 15), file_ent.tfs_next_free);
+
+		return _NOERROR;
+	}
+}
+
+void initFileEntry(FILE_ENTRY *file_ent){
+
+	file_ent->tfs_size = 1024;
+	file_ent->tfs_type = TFS_REGULAR;
+	file_ent->tfs_subtype = 0;
+	file_ent->tfs_indirect1 = 0;
+	file_ent->tfs_indirect2 = 0;
+	file_ent->tfs_next_free = 0;
+
+	for(int i=0; i<10; i++){
+		file_ent->tfs_direct[i] = 0;
+	}
+}
+
+void setNextFreeFile(FILE_ENTRY *file_ent, uint32_t next){
+	file_ent->tfs_next_free = next;
+}
+
+void setTypeFile(FILE_ENTRY *file_ent, int type){
+	file_ent->tfs_type = type;
+}
+
+void setSubTypeFile(FILE_ENTRY *file_ent, int subtype){
+	file_ent->tfs_subtype = subtype;
+}
+
+void addDirectBlock(FILE_ENTRY *file_ent, uint32_t num){
+	// Ecriture sur la premiere case vide trouvée
+	for(int i=0; i<10; i++){
+		if(file_ent->tfs_direct[i] == 0){
+			file_ent->tfs_direct[i] = num;
+			break;
+		}
+	}
+}
+
+
+
+

@@ -36,6 +36,7 @@
 #define _POS_IN_BLCK_TOO_BIG 8
 #define _PARTITION_NOT_FOUND 9
 #define _MAX_FILES_TOO_BIG 10
+#define _POS_IN_TABLE_TOO_BIG 11
 
 // Définition des types
 typedef int error;
@@ -45,8 +46,13 @@ typedef unsigned char block[BLCK_SIZE];
 typedef struct{
 	FILE *disk_descriptor;
 	uint32_t nb_blocks; 
-	int flag;
+	uint32_t flag;
 } DISK;
+
+typedef struct{
+	int size_table;
+	block *blocks;
+} FILES_TABLE;
 
 typedef struct{
 	uint32_t tfs_size;
@@ -60,7 +66,7 @@ typedef struct{
 
 typedef struct{
 	uint32_t number;
-	char *name[28];
+	char name[28];
 } DIR_ENTRY;
 
 //_________________________________________________________
@@ -74,9 +80,34 @@ error stop_disk(disk_id id);
 //_________________________________________________________
 // Fonctions auxiliaires
 char* strError(error err);
-void printBlock(block b);
+error eraseDisk(disk_id id, int block_debut, int block_fin);
+
+//_________________________________________________________
+// Fonctions blocks
 void blockToLtleIndian(block b);
 error writeIntToBlock(block b, int position, uint32_t number);
-int readBlockToInt(block b, int position);
+uint32_t readBlockToInt(block b, int position);
 error eraseBlock(block b, int debut, int fin);
-error eraseDisk(disk_id id, int block_debut, int block_fin);
+void printBlock(block b);
+
+//_________________________________________________________
+// Fonctions table des fichiers
+int initFilesTable(FILES_TABLE *table);
+error writeFileEntryToTable(FILES_TABLE *table, FILE_ENTRY file_ent, int file_pos);
+
+//_________________________________________________________
+// Fonctions entrées de fichier
+void initFileEntry(FILE_ENTRY *file_ent);
+void setNextFreeFile(FILE_ENTRY *file_ent, uint32_t next);
+void setTypeFile(FILE_ENTRY *file_ent, int type);
+void setSubTypeFile(FILE_ENTRY *file_ent, int subtype);
+void addDirectBlock(FILE_ENTRY *file_ent, uint32_t num);
+
+
+
+
+
+
+
+
+
