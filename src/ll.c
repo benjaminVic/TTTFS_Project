@@ -425,13 +425,11 @@ error eraseBlock(block b, int debut, int fin){
 // Fonctions table des fichiers
 // ##########################################################
 
-void initFilesTable(FILES_TABLE *table){
-
-	int size_of_table = table->size_table;
+void initFilesTable(block *table, int size){
 
 	// Mise à 0 de tout les octets de tout les blocs
-	for(int i=0; i < size_of_table; i++){
-		eraseBlock(table->blocks[i], 0, 256);
+	for(int i=0; i < size; i++){
+		eraseBlock(table[i], 0, 256);
 	}
 	
 	// Création d'une entrée vierge
@@ -439,46 +437,69 @@ void initFilesTable(FILES_TABLE *table){
 	initFileEntry(&file);
 
 	// Ecriture d'une entrée vierge dans tout les emplacements de la table
-	for(int i=0; i < 16 * size_of_table; i++){
+	for(int i=0; i < 16 * size; i++){
 		// Initialisation de la chaine des entrées libres
-		if(i < (16 * size_of_table)-1)
+		if(i < (16 * size)-1)
 			setNextFreeFile(&file, i+1);
 		else
 			setNextFreeFile(&file, i);
 		// Ecriture de l'entrée
-		writeFileEntryToTable(table, file, i);
+		writeFileEntryToTable(table, size, file, i);
 	}
 }
 
-error writeFileEntryToTable(FILES_TABLE *table, FILE_ENTRY file_ent, int file_pos){
-	if(file_pos >= 16 * table->size_table)
+error writeFileEntryToTable(block *table, int size_table, FILE_ENTRY file_ent, int file_pos){
+	if(file_pos >= 16 * size_table)
 		return _POS_IN_TABLE_TOO_BIG;
 	else{
 		int indx_blck_tab = file_pos / 16;
 		int pos_in_blck = (file_pos % 16)*16;
 
 		// Ecriture de l'entrée de fichier
-		writeIntToBlock(table->blocks[indx_blck_tab], pos_in_blck, file_ent.tfs_size);
-		writeIntToBlock(table->blocks[indx_blck_tab], (pos_in_blck + 1), file_ent.tfs_type);
-		writeIntToBlock(table->blocks[indx_blck_tab], (pos_in_blck + 2), file_ent.tfs_subtype);
+		writeIntToBlock(table[indx_blck_tab], pos_in_blck, file_ent.tfs_size);
+		writeIntToBlock(table[indx_blck_tab], (pos_in_blck + 1), file_ent.tfs_type);
+		writeIntToBlock(table[indx_blck_tab], (pos_in_blck + 2), file_ent.tfs_subtype);
 		for(int i=0; i<10; i++){
-			writeIntToBlock(table->blocks[indx_blck_tab], (pos_in_blck + 3 + i), file_ent.tfs_direct[i]);
+			writeIntToBlock(table[indx_blck_tab], (pos_in_blck + 3 + i), file_ent.tfs_direct[i]);
 		}
-		writeIntToBlock(table->blocks[indx_blck_tab], (pos_in_blck + 13), file_ent.tfs_indirect1);
-		writeIntToBlock(table->blocks[indx_blck_tab], (pos_in_blck + 14), file_ent.tfs_indirect2);
-		writeIntToBlock(table->blocks[indx_blck_tab], (pos_in_blck + 15), file_ent.tfs_next_free);
+		writeIntToBlock(table[indx_blck_tab], (pos_in_blck + 13), file_ent.tfs_indirect1);
+		writeIntToBlock(table[indx_blck_tab], (pos_in_blck + 14), file_ent.tfs_indirect2);
+		writeIntToBlock(table[indx_blck_tab], (pos_in_blck + 15), file_ent.tfs_next_free);
 
 		return _NOERROR;
 	}
 }
 
-error writeFilesTable(disk_id id, FILES_TABLE table, int position, int size_partition){
-	if(position + table.size_table >= size_partition)
+error writeFilesTable(disk_id id, block *table, int size_table, int position, int size_partition){
+	// Si le disque n'est pas monté
+	if((_disks[id].flag & _MOUNTED) == 0)
+		return _DISK_UNMOUNTED;
+
+	if(position + size_table >= size_partition)
 		return _POS_IN_PARTITION_TOO_BIG;
 
-	for(int i=0; i < table.size_table; i++){
-		write_block(id, table.blocks[i], position + i);
+	for(int i=0; i < size_table; i++){
+		write_block(id, table[i], position + i);
 	}
+
+	return _NOERROR;
+}
+
+error readFilesTable(disk_id id, block *table, int size_table, int partition){
+	uint32_t file_count = 0;
+	PARTITION_INFO infPartition;
+
+	// Si le disque n'est pas monté
+	if((_disks[id].flag & _MOUNTED) == 0)
+		return _DISK_UNMOUNTED;
+
+	// On récupère les informations de la partition
+	error read_infos_part = readPartitionInfos(0, &infPartition, partition);
+	if(read_infos_part != 0){
+		return read_infos_part;
+	}
+
+	file_count = infPartition.TTTFS_VOLUME_MAX_FILE_COUNT;
 
 	return _NOERROR;
 }

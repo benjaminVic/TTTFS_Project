@@ -59,11 +59,6 @@ typedef struct{
 } PARTITION_INFO;
 
 typedef struct{
-	int size_table;
-	block *blocks;
-} FILES_TABLE;
-
-typedef struct{
 	uint32_t tfs_size;
 	uint32_t tfs_type;
 	uint32_t tfs_subtype;
@@ -89,7 +84,10 @@ error stop_disk(disk_id id);
 //_________________________________________________________
 // Fonctions informations DISQUE et PARTITIONS
 error getFirstPartitionBlck(disk_id id, int partition, uint32_t *number);
+
 error readDiskInfos(disk_id id, DISK_INFO *infDisk);
+
+
 error readPartitionInfos(disk_id id, PARTITION_INFO *infPartition, int partition);
 error writePartitionInfos(disk_id id, PARTITION_INFO infPartition, int partition);
 
@@ -116,11 +114,11 @@ void printBlock(block b);
 
 //_________________________________________________________
 // Fonctions table des fichiers
-void initFilesTable(FILES_TABLE *table);
-error writeFileEntryToTable(FILES_TABLE *table, FILE_ENTRY file_ent, int file_pos);
+void initFilesTable(block *table, int size);
+error writeFileEntryToTable(block *table, int size_table, FILE_ENTRY file_ent, int file_pos);
 //error readFileEntryFromTable(FILES_TABLE *table, FILE_ENTRY *file_ent, int file_pos);
-error writeFilesTable(disk_id id, FILES_TABLE table, int position, int size_partition);
-//error readFilesTable(disk_id id, FILES_TABLE *table, int position, int size_partition);
+error writeFilesTable(disk_id id, block *table, int size_table, int position, int size_partition);
+error readFilesTable(disk_id id, block *table, int size_table, int partition);
 
 //_________________________________________________________
 // Fonctions entrées de fichier

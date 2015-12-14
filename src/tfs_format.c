@@ -106,6 +106,7 @@ error init_partition(char* disk_name, int partition, uint32_t file_count){
 		exit(1);
 	}
 
+	// Modification des informations
 	infPartition.TTTFS_MAGIC_NUMBER = MAGIC_NUMBER;
 	infPartition.TTTFS_VOLUME_BLOCK_SIZE = BLCK_SIZE;
 	infPartition.TTTFS_VOLUME_BLOCK_COUNT = size_of_partition;
@@ -114,7 +115,6 @@ error init_partition(char* disk_name, int partition, uint32_t file_count){
 	infPartition.TTTFS_VOLUME_MAX_FILE_COUNT = file_count; 
 	infPartition.TTTFS_VOLUME_FREE_FILE_COUNT = file_count-1; // Nombre de fichier - la racine
 	infPartition.TTTFS_VOLUME_FIRST_FREE_FILE = 1; // Le 0 sera déjà pris pour la racine
-	
 
 	// On écrit les données dans le premier block de la partition (Description block)
 	error write_desc_block = writePartitionInfos(0, infPartition, partition);
@@ -125,13 +125,8 @@ error init_partition(char* disk_name, int partition, uint32_t file_count){
 
 	//______________________________________________________________________________
 	// Initialisation de la table des fichiers
-	block tabBlocks[size_of_table]; // Tableau de blocks
-
-	FILES_TABLE table;
-	table.size_table = size_of_table;
-	table.blocks = tabBlocks;
-	
-	initFilesTable(&table);
+	block files_table[size_of_table]; // Tableau de blocks
+	initFilesTable(files_table, size_of_table);
 	//______________________________________________________________________________
 
 	// Création de l'entrée racine
@@ -142,17 +137,15 @@ error init_partition(char* disk_name, int partition, uint32_t file_count){
 	addDirectBlock(&racine, size_of_table+1);
 	setNextFreeFile(&racine, 0);
 
-	// Ecriture de la racine dans la table
-	writeFileEntryToTable(&table, racine, 0);
-	// Ecriture de la table sur le disque
-	writeFilesTable(0, table, (first_partition_blck + 1), size_of_partition);
+	// Ecriture de la racine dans la table à la position 0
+	writeFileEntryToTable(files_table, size_of_table, racine, 0);
+	// Ecriture de la table sur la partition
+	writeFilesTable(0, files_table, size_of_table, (first_partition_blck + 1), size_of_partition);
 
-	//########## TEST LECTURE TABLE ############
-	FILES_TABLE tableLu;
-	//readFilesTable(0, )
-	//printBlock(table.blocks[0]);
-	//printBlock(table.blocks[1]);
+	//printBlock(files_table[0]);
+	//printBlock(files_table[1]);
 
+	//########## TEST LECTURE FILE ENTRY ############
 	//##########################################
 
 	block b_racine;
