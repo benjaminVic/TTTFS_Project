@@ -37,42 +37,38 @@ int main(int argc, char *argv[]){
 }
 
 error init_partition(char* disk_name, int partition, uint32_t file_count){
+
+	uint32_t first_partition_blck = 0;
 	uint32_t size_of_partition = 0;
 	uint32_t size_of_table = 0;
 	uint32_t total_size = 0;
-	uint32_t first_partition_blck = 1;
 
-	DISK_INFO infDisk;
 	PARTITION_INFO infPartition;
-
-	block infosPartition;
 
 	// Vérification de l'existance du disque
 	if(access(disk_name, F_OK) != 0){
 		return _DISK_NOT_FOUND;
 	}
-	
 	// On monte le disque en lui donnant l'id 0
 	error start = start_disk(disk_name, 0); 
 	if(start != 0){
 		return start;
 	}
 
-	// Récupération des informations du disque
-	error read_infos_disk = readDiskInfos(0, &infDisk);
-	if(read_infos_disk != 0){
+	// On récupère les informations de la partition
+	error read_infos_part = readPartitionInfos(0, &infPartition, partition);
+	if(read_infos_part != 0){
 		stop_disk(0);
-		return read_infos_disk;
+		return read_infos_part;
 	}
 
-	// Vérification de l'existence de la partition
-	if(partition >= infDisk.nb_partitions)
-		return _PARTITION_NOT_FOUND;
+	// On récupère le numero du premier block de cette partition et la taille
+	size_of_partition = infPartition.TTTFS_VOLUME_BLOCK_COUNT;
 
-	size_of_partition = infDisk.p_sizes[partition];
-	// Calcul du premier block de la partition
-	for(int i=0; i<partition; i++){
-		first_partition_blck += infDisk.p_sizes[i];
+	error fst_blck = getFirstPartitionBlck(0, partition, &first_partition_blck);
+	if(fst_blck != 0){
+		stop_disk(0);
+		return fst_blck;
 	}
 
 	// Calcul de la taille nécessaire pour la table des fichiers (64o par entrée)
@@ -94,31 +90,12 @@ error init_partition(char* disk_name, int partition, uint32_t file_count){
 	if(total_size > size_of_partition)
 		return _MAX_FILES_TOO_BIG;
 
-	// On récupère les information de la partition
-	error read_infos_part = readPartitionInfos(0, &infPartition, partition);
-	if(read_infos_part != 0){
-		stop_disk(0);
-		return read_infos_part;
-	}
-
-	printf("%d\n", infPartition.TTTFS_MAGIC_NUMBER);
-
-	error read_desc_block = read_block(0, infosPartition, first_partition_blck);
-	if(read_desc_block != 0){
-		stop_disk(0);
-		return read_desc_block;
-	}
-
 	// Confirmation du formatage
 	char validation[16];
 	printf("%s", "Le formatage entraine la perte de données, êtes-vous sûr ?(y/n) ");
 	scanf("%s", validation);
 
 	if( (strcmp(validation, "Y") == 0) || (strcmp(validation, "y") == 0) ){
-		// On remet à zero le premier block de la partition
-		error erase_blck = eraseBlock(infosPartition, 0, 256); 
-		if(erase_blck != 0)
-			fprintf(stderr, "Erreur %d: %s\n", erase_blck, strError(erase_blck));
 		// On efface la partition (de first_partition_blck à size_of_partition+1)
 		error erase_disk = eraseDisk(0, first_partition_blck, size_of_partition+1);
 		if(erase_disk != 0)
@@ -129,23 +106,21 @@ error init_partition(char* disk_name, int partition, uint32_t file_count){
 		exit(1);
 	}
 
-	// On écrit les données dans le premier block de la partition (Description block)
-	writeIntToBlock(infosPartition, 0, MAGIC_NUMBER);
-	writeIntToBlock(infosPartition, 1, BLCK_SIZE);
-	writeIntToBlock(infosPartition, 2, size_of_partition);
-	writeIntToBlock(infosPartition, 3, file_count-1); // Le nombre de fichier - la racine
-	writeIntToBlock(infosPartition, 4, size_of_table+1); // Le block suivant la table des fichiers
-	writeIntToBlock(infosPartition, 5, file_count); 
-	writeIntToBlock(infosPartition, 6, file_count-1); // Nombre de fichier - la racine
-	writeIntToBlock(infosPartition, 7, 1); // Le 0 sera déjà pris pour la racine
+	infPartition.TTTFS_MAGIC_NUMBER = MAGIC_NUMBER;
+	infPartition.TTTFS_VOLUME_BLOCK_SIZE = BLCK_SIZE;
+	infPartition.TTTFS_VOLUME_BLOCK_COUNT = size_of_partition;
+	infPartition.TTTFS_VOLUME_FREE_BLOCK_COUNT = file_count-1; // Le nombre de fichier - la racine
+	infPartition.TTTFS_VOLUME_FIRST_FREE_BLOCK = size_of_table+1; // Le block suivant la table des fichiers
+	infPartition.TTTFS_VOLUME_MAX_FILE_COUNT = file_count; 
+	infPartition.TTTFS_VOLUME_FREE_FILE_COUNT = file_count-1; // Nombre de fichier - la racine
+	infPartition.TTTFS_VOLUME_FIRST_FREE_FILE = 1; // Le 0 sera déjà pris pour la racine
+	
 
-	//printBlock(infosPartition);
-	// Ecriture du Description block
-	error write_desc_block = write_block(0, infosPartition, first_partition_blck);
+	// On écrit les données dans le premier block de la partition (Description block)
+	error write_desc_block = writePartitionInfos(0, infPartition, partition);
 	if(write_desc_block != 0){
-		fprintf(stderr, "Erreur %d: %s\n", write_desc_block, strError(write_desc_block));
 		stop_disk(0);
-		exit(1);
+		return write_desc_block;
 	}
 
 	//______________________________________________________________________________

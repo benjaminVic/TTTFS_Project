@@ -124,6 +124,29 @@ error sync_disk(disk_id id){
 // Fonctions informations DISQUE et PARTITIONS
 // ##########################################################
 
+error getFirstPartitionBlck(disk_id id, int partition, uint32_t *number){
+	DISK_INFO infDisk;
+
+	// Si le disque n'est pas monté
+	if((_disks[id].flag & _MOUNTED) == 0)
+		return _DISK_UNMOUNTED;
+
+	// Récupération des informations du disque
+	readDiskInfos(0, &infDisk);
+
+	// Vérification de l'existence de la partition
+	if(partition >= infDisk.nb_partitions)
+		return _PARTITION_NOT_FOUND;
+
+	// Calcul du premier block de la partition
+	*number = 1;
+	for(int i=0; i<partition; i++){
+		*number += infDisk.p_sizes[i];
+	}
+
+	return _NOERROR;
+}
+
 error readDiskInfos(disk_id id, DISK_INFO *infDisk){
 	// Si le disque n'est pas monté
 	if((_disks[id].flag & _MOUNTED) == 0)
@@ -146,24 +169,16 @@ error readDiskInfos(disk_id id, DISK_INFO *infDisk){
 }
 
 error readPartitionInfos(disk_id id, PARTITION_INFO *infPartition, int partition){
-	uint32_t first_partition_blck = 1;
-	DISK_INFO infDisk;
+	uint32_t first_partition_blck = 0;
 	block b;
 
 	// Si le disque n'est pas monté
 	if((_disks[id].flag & _MOUNTED) == 0)
 		return _DISK_UNMOUNTED;
 
-	// Récupération des informations du disque
-	readDiskInfos(0, &infDisk);
-
-	// Vérification de l'existence de la partition
-	if(partition >= infDisk.nb_partitions)
-		return _PARTITION_NOT_FOUND;
-
-	// Calcul du premier block de la partition
-	for(int i=0; i<partition; i++){
-		first_partition_blck += infDisk.p_sizes[i];
+	error fst_blck = getFirstPartitionBlck(0, partition, &first_partition_blck);
+	if(fst_blck != 0){
+		return fst_blck;
 	}
 
 	// On lit le premier block de la partition
@@ -178,6 +193,40 @@ error readPartitionInfos(disk_id id, PARTITION_INFO *infPartition, int partition
 	infPartition->TTTFS_VOLUME_MAX_FILE_COUNT = readBlockToInt(b, 5); 
 	infPartition->TTTFS_VOLUME_FREE_FILE_COUNT = readBlockToInt(b, 6);
 	infPartition->TTTFS_VOLUME_FIRST_FREE_FILE = readBlockToInt(b, 7); 
+
+	return _NOERROR;
+}
+
+error writePartitionInfos(disk_id id, PARTITION_INFO infPartition, int partition){
+	uint32_t first_partition_blck = 0;
+	block b;
+
+	// Si le disque n'est pas monté
+	if((_disks[id].flag & _MOUNTED) == 0)
+		return _DISK_UNMOUNTED;
+
+	error fst_blck = getFirstPartitionBlck(id, partition, &first_partition_blck);
+	if(fst_blck != 0){
+		return fst_blck;
+	}
+
+	// On lit le premier block de la partition
+	read_block(id, b, first_partition_blck);
+
+	// On écrit les données du premier block de la partition (Description block)
+	writeIntToBlock(b, 0, infPartition.TTTFS_MAGIC_NUMBER);
+	writeIntToBlock(b, 1, infPartition.TTTFS_VOLUME_BLOCK_SIZE);
+	writeIntToBlock(b, 2, infPartition.TTTFS_VOLUME_BLOCK_COUNT);
+	writeIntToBlock(b, 3, infPartition.TTTFS_VOLUME_FREE_BLOCK_COUNT);
+	writeIntToBlock(b, 4, infPartition.TTTFS_VOLUME_FIRST_FREE_BLOCK);
+	writeIntToBlock(b, 5, infPartition.TTTFS_VOLUME_MAX_FILE_COUNT); 
+	writeIntToBlock(b, 6, infPartition.TTTFS_VOLUME_FREE_FILE_COUNT);
+	writeIntToBlock(b, 7, infPartition.TTTFS_VOLUME_FIRST_FREE_FILE);
+
+	error write_desc_block = write_block(id, b, first_partition_blck);
+	if(write_desc_block != 0){
+		stop_disk(0);
+	}
 
 	return _NOERROR;
 }
