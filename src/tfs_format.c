@@ -37,13 +37,14 @@ int main(int argc, char *argv[]){
 }
 
 error init_partition(char* disk_name, int partition, uint32_t file_count){
-	uint32_t number_of_partitions = 0;
 	uint32_t size_of_partition = 0;
 	uint32_t size_of_table = 0;
 	uint32_t total_size = 0;
 	uint32_t first_partition_blck = 1;
 
-	block infosDisk;
+	DISK_INFO infDisk;
+	PARTITION_INFO infPartition;
+
 	block infosPartition;
 
 	// Vérification de l'existance du disque
@@ -57,30 +58,21 @@ error init_partition(char* disk_name, int partition, uint32_t file_count){
 		return start;
 	}
 
-	// On tente de lire le block 0
-	error read_infos_disk = read_block(0, infosDisk, 0);
+	// Récupération des informations du disque
+	error read_infos_disk = readDiskInfos(0, &infDisk);
 	if(read_infos_disk != 0){
 		stop_disk(0);
 		return read_infos_disk;
 	}
 
-	// Lecture du nombre de partitions
-	number_of_partitions = readBlockToInt(infosDisk, 1);
 	// Vérification de l'existence de la partition
-	if(partition >= number_of_partitions)
+	if(partition >= infDisk.nb_partitions)
 		return _PARTITION_NOT_FOUND;
 
-	// Récupération des tailles des partitions
-	uint32_t partitionsSizes[number_of_partitions];
-	//(+2 pour arriver aux entiers des tailles de partition présentes)
-	for(int i=0; i<number_of_partitions; i++){
-		partitionsSizes[i] = readBlockToInt(infosDisk, i+2);
-	}
-
-	size_of_partition = partitionsSizes[partition];
+	size_of_partition = infDisk.p_sizes[partition];
 	// Calcul du premier block de la partition
 	for(int i=0; i<partition; i++){
-		first_partition_blck += partitionsSizes[i];
+		first_partition_blck += infDisk.p_sizes[i];
 	}
 
 	// Calcul de la taille nécessaire pour la table des fichiers (64o par entrée)
@@ -102,7 +94,15 @@ error init_partition(char* disk_name, int partition, uint32_t file_count){
 	if(total_size > size_of_partition)
 		return _MAX_FILES_TOO_BIG;
 
-	// On récupère le premier block de la partition
+	// On récupère les information de la partition
+	error read_infos_part = readPartitionInfos(0, &infPartition, partition);
+	if(read_infos_part != 0){
+		stop_disk(0);
+		return read_infos_part;
+	}
+
+	printf("%d\n", infPartition.TTTFS_MAGIC_NUMBER);
+
 	error read_desc_block = read_block(0, infosPartition, first_partition_blck);
 	if(read_desc_block != 0){
 		stop_disk(0);
@@ -130,14 +130,14 @@ error init_partition(char* disk_name, int partition, uint32_t file_count){
 	}
 
 	// On écrit les données dans le premier block de la partition (Description block)
-	writeIntToBlock(infosPartition, 0, TTTFS_MAGIC_NUMBER);
-	writeIntToBlock(infosPartition, 1, TTTFS_VOLUME_BLOCK_SIZE);
-	writeIntToBlock(infosPartition, 2, TTTFS_VOLUME_BLOCK_COUNT(size_of_partition));
-	writeIntToBlock(infosPartition, 3, TTTFS_VOLUME_FREE_BLOCK_COUNT(file_count-1)); // Le nombre de fichier - la racine
-	writeIntToBlock(infosPartition, 4, TTTFS_VOLUME_FIRST_FREE_BLOCK(size_of_table+1)); // Le block suivant la table des fichiers
-	writeIntToBlock(infosPartition, 5, TTTFS_VOLUME_MAX_FILE_COUNT(file_count)); 
-	writeIntToBlock(infosPartition, 6, TTTFS_VOLUME_FREE_FILE_COUNT(file_count-1)); // Nombre de fichier - la racine
-	writeIntToBlock(infosPartition, 7, TTTFS_VOLUME_FIRST_FREE_FILE(1)); // Le 0 sera déjà pris pour la racine
+	writeIntToBlock(infosPartition, 0, MAGIC_NUMBER);
+	writeIntToBlock(infosPartition, 1, BLCK_SIZE);
+	writeIntToBlock(infosPartition, 2, size_of_partition);
+	writeIntToBlock(infosPartition, 3, file_count-1); // Le nombre de fichier - la racine
+	writeIntToBlock(infosPartition, 4, size_of_table+1); // Le block suivant la table des fichiers
+	writeIntToBlock(infosPartition, 5, file_count); 
+	writeIntToBlock(infosPartition, 6, file_count-1); // Nombre de fichier - la racine
+	writeIntToBlock(infosPartition, 7, 1); // Le 0 sera déjà pris pour la racine
 
 	//printBlock(infosPartition);
 	// Ecriture du Description block
@@ -156,10 +156,7 @@ error init_partition(char* disk_name, int partition, uint32_t file_count){
 	table.size_table = size_of_table;
 	table.blocks = tabBlocks;
 	
-	if(initFilesTable(&table) != 0){
-		fprintf(stderr, "Erreur lors de l'initialisation de la table.");
-		exit(1);
-	}
+	initFilesTable(&table);
 	//______________________________________________________________________________
 
 	// Création de l'entrée racine
@@ -172,14 +169,16 @@ error init_partition(char* disk_name, int partition, uint32_t file_count){
 
 	// Ecriture de la racine dans la table
 	writeFileEntryToTable(&table, racine, 0);
+	// Ecriture de la table sur le disque
+	writeFilesTable(0, table, (first_partition_blck + 1), size_of_partition);
 
+	//########## TEST LECTURE TABLE ############
+	FILES_TABLE tableLu;
+	//readFilesTable(0, )
 	//printBlock(table.blocks[0]);
 	//printBlock(table.blocks[1]);
 
-	// Ecriture de la table sur le disque
-	for(int i=0; i < size_of_table; i++){
-		write_block(0, table.blocks[i], (first_partition_blck + 1 + i));
-	}
+	//##########################################
 
 	block b_racine;
 	int pos_blck_racine = first_partition_blck + size_of_table + 1;
@@ -202,21 +201,15 @@ error init_partition(char* disk_name, int partition, uint32_t file_count){
 	// Ecriture dans le block
 	writeDirEntryToBlock(b_racine, 0, dot);
 	writeDirEntryToBlock(b_racine, 1, double_dot);
-
-	//printBlock(b_racine);
-
 	// Ecriture du block sur le disque
 	write_block(0, b_racine, pos_blck_racine);
 
-
-	// ############### TEST #################
-	read_block(0, b_racine, pos_blck_racine);
-	//printBlock(b_racine);
-	
+	//########## TEST LECTURE DIR ENTRY ############
 	DIR_ENTRY testEntry;
+	read_block(0, b_racine, pos_blck_racine);
 	readBlockToDirEntry(b_racine, 1, &testEntry);
 	printf("%s\n", testEntry.name);
-
+	//##############################################
 
 	stop_disk(0);
 	return _NOERROR;

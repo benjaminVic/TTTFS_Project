@@ -1,15 +1,6 @@
 #define MAX_OPEN_DISK 64
 #define BLCK_SIZE 1024 // 1024 Octects
-
-// Description d'une partition
-#define TTTFS_MAGIC_NUMBER 827541076 //(hex = 0x31534654)
-#define TTTFS_VOLUME_BLOCK_SIZE 1024
-#define TTTFS_VOLUME_BLOCK_COUNT(n) n
-#define TTTFS_VOLUME_FREE_BLOCK_COUNT(n) n
-#define TTTFS_VOLUME_FIRST_FREE_BLOCK(n) n
-#define TTTFS_VOLUME_MAX_FILE_COUNT(n) n
-#define TTTFS_VOLUME_FREE_FILE_COUNT(n) n
-#define TTTFS_VOLUME_FIRST_FREE_FILE(n) n
+#define MAGIC_NUMBER 827541076 //(hex = 0x31534654)
 
 // Types de fichiers
 #define TFS_REGULAR 0
@@ -37,6 +28,7 @@
 #define _PARTITION_NOT_FOUND 9
 #define _MAX_FILES_TOO_BIG 10
 #define _POS_IN_TABLE_TOO_BIG 11
+#define _POS_IN_PARTITION_TOO_BIG 12
 
 // Définition des types
 typedef int error;
@@ -48,6 +40,23 @@ typedef struct{
 	uint32_t nb_blocks; 
 	uint32_t flag;
 } DISK;
+
+typedef struct{
+	uint32_t size;
+	uint32_t nb_partitions;
+	uint32_t p_sizes[(BLCK_SIZE/4)-2];
+} DISK_INFO;
+
+typedef struct{
+	uint32_t TTTFS_MAGIC_NUMBER;
+	uint32_t TTTFS_VOLUME_BLOCK_SIZE;
+	uint32_t TTTFS_VOLUME_BLOCK_COUNT;
+	uint32_t TTTFS_VOLUME_FREE_BLOCK_COUNT;
+	uint32_t TTTFS_VOLUME_FIRST_FREE_BLOCK;
+	uint32_t TTTFS_VOLUME_MAX_FILE_COUNT;
+	uint32_t TTTFS_VOLUME_FREE_FILE_COUNT;
+	uint32_t TTTFS_VOLUME_FIRST_FREE_FILE;
+} PARTITION_INFO;
 
 typedef struct{
 	int size_table;
@@ -78,6 +87,11 @@ error sync_disk(disk_id id);
 error stop_disk(disk_id id);
 
 //_________________________________________________________
+// Fonctions informations DISQUE et PARTITIONS
+error readDiskInfos(disk_id id, DISK_INFO *infDisk);
+error readPartitionInfos(disk_id id, PARTITION_INFO *infPartition, int partition);
+
+//_________________________________________________________
 // Fonctions auxiliaires
 char* strError(error err);
 error eraseDisk(disk_id id, int block_debut, int block_fin);
@@ -100,8 +114,11 @@ void printBlock(block b);
 
 //_________________________________________________________
 // Fonctions table des fichiers
-int initFilesTable(FILES_TABLE *table);
+void initFilesTable(FILES_TABLE *table);
 error writeFileEntryToTable(FILES_TABLE *table, FILE_ENTRY file_ent, int file_pos);
+//error readFileEntryFromTable(FILES_TABLE *table, FILE_ENTRY *file_ent, int file_pos);
+error writeFilesTable(disk_id id, FILES_TABLE table, int position, int size_partition);
+//error readFilesTable(disk_id id, FILES_TABLE *table, int position, int size_partition);
 
 //_________________________________________________________
 // Fonctions entrées de fichier

@@ -120,8 +120,72 @@ error sync_disk(disk_id id){
 	return _NOERROR;
 }
 
-//_____________________________________________________________
+// ##########################################################
+// Fonctions informations DISQUE et PARTITIONS
+// ##########################################################
+
+error readDiskInfos(disk_id id, DISK_INFO *infDisk){
+	// Si le disque n'est pas monté
+	if((_disks[id].flag & _MOUNTED) == 0)
+		return _DISK_UNMOUNTED;
+
+	// On lit le premier block du disque
+	block b;
+	read_block(id, b, 0);
+
+	// Récupération du nombre de partitions
+	infDisk->nb_partitions = readBlockToInt(b, 1);
+
+	// Récupération des tailles des partitions
+	//(+2 pour arriver aux entiers des tailles de partition présentes)
+	for(int i=0; i< ((BLCK_SIZE/4)-2); i++){
+		infDisk->p_sizes[i] = readBlockToInt(b, i+2);
+	}
+
+	return _NOERROR;
+}
+
+error readPartitionInfos(disk_id id, PARTITION_INFO *infPartition, int partition){
+	uint32_t first_partition_blck = 1;
+	DISK_INFO infDisk;
+	block b;
+
+	// Si le disque n'est pas monté
+	if((_disks[id].flag & _MOUNTED) == 0)
+		return _DISK_UNMOUNTED;
+
+	// Récupération des informations du disque
+	readDiskInfos(0, &infDisk);
+
+	// Vérification de l'existence de la partition
+	if(partition >= infDisk.nb_partitions)
+		return _PARTITION_NOT_FOUND;
+
+	// Calcul du premier block de la partition
+	for(int i=0; i<partition; i++){
+		first_partition_blck += infDisk.p_sizes[i];
+	}
+
+	// On lit le premier block de la partition
+	read_block(id, b, first_partition_blck);
+
+	// On lis les données du premier block de la partition (Description block)
+	infPartition->TTTFS_MAGIC_NUMBER = readBlockToInt(b, 0);
+	infPartition->TTTFS_VOLUME_BLOCK_SIZE = readBlockToInt(b, 1);
+	infPartition->TTTFS_VOLUME_BLOCK_COUNT = readBlockToInt(b, 2);
+	infPartition->TTTFS_VOLUME_FREE_BLOCK_COUNT = readBlockToInt(b, 3); 
+	infPartition->TTTFS_VOLUME_FIRST_FREE_BLOCK = readBlockToInt(b, 4);
+	infPartition->TTTFS_VOLUME_MAX_FILE_COUNT = readBlockToInt(b, 5); 
+	infPartition->TTTFS_VOLUME_FREE_FILE_COUNT = readBlockToInt(b, 6);
+	infPartition->TTTFS_VOLUME_FIRST_FREE_FILE = readBlockToInt(b, 7); 
+
+	return _NOERROR;
+}
+
+// ##########################################################
 // Fonctions auxiliaires
+// ##########################################################
+
 char* strError(error err){
 	if(err == _DISK_NOT_FOUND)
 		return "Le disque n'existe pas.";
@@ -145,9 +209,36 @@ char* strError(error err){
 		return "Pas assez d'espace sur la partition.";
 	if(err == _POS_IN_TABLE_TOO_BIG)
 		return "Pas assez de place dans la table des fichiers.";
+	if(err == _POS_IN_PARTITION_TOO_BIG)
+		return "Pas assez de place dans la partition.";
 
 	return "Aucune erreur.";
 }
+
+error eraseDisk(disk_id id, int block_debut, int block_fin){
+	block b;
+	for(int i=block_debut; i<block_fin; i++){
+		// Lecture du block i
+		error read = read_block(id, b, i);
+		if(read != 0)
+			return read;
+
+		// Efface le block i
+		error erase_blck = eraseBlock(b, 0, 256); 
+		if(erase_blck != 0)
+			return erase_blck;
+
+		// Ecrit le block i
+		error write = write_block(id, b, i);
+		if(write != 0)
+			return write;
+	}
+	return _NOERROR;
+}
+
+// ##########################################################
+// Fonctions blocks
+// ##########################################################
 
 void printBlock(block b){
 	int nb_block_print = 0;
@@ -280,30 +371,12 @@ error eraseBlock(block b, int debut, int fin){
 		return _POS_IN_BLCK_TOO_BIG;
 }
 
-error eraseDisk(disk_id id, int block_debut, int block_fin){
-	block b;
-	for(int i=block_debut; i<block_fin; i++){
-		// Lecture du block i
-		error read = read_block(id, b, i);
-		if(read != 0)
-			return read;
 
-		// Efface le block i
-		error erase_blck = eraseBlock(b, 0, 256); 
-		if(erase_blck != 0)
-			return erase_blck;
+// ##########################################################
+// Fonctions table des fichiers
+// ##########################################################
 
-		// Ecrit le block i
-		error write = write_block(id, b, i);
-		if(write != 0)
-			return write;
-	}
-	return _NOERROR;
-}
-
-int initFilesTable(FILES_TABLE *table){
-	if(table == NULL)
-		return -1;
+void initFilesTable(FILES_TABLE *table){
 
 	int size_of_table = table->size_table;
 
@@ -326,8 +399,6 @@ int initFilesTable(FILES_TABLE *table){
 		// Ecriture de l'entrée
 		writeFileEntryToTable(table, file, i);
 	}
-
-	return 0;
 }
 
 error writeFileEntryToTable(FILES_TABLE *table, FILE_ENTRY file_ent, int file_pos){
@@ -351,6 +422,22 @@ error writeFileEntryToTable(FILES_TABLE *table, FILE_ENTRY file_ent, int file_po
 		return _NOERROR;
 	}
 }
+
+error writeFilesTable(disk_id id, FILES_TABLE table, int position, int size_partition){
+	if(position + table.size_table >= size_partition)
+		return _POS_IN_PARTITION_TOO_BIG;
+
+	for(int i=0; i < table.size_table; i++){
+		write_block(id, table.blocks[i], position + i);
+	}
+
+	return _NOERROR;
+}
+
+
+// ##########################################################
+// Fonctions entrées de fichier
+// ##########################################################
 
 void initFileEntry(FILE_ENTRY *file_ent){
 
