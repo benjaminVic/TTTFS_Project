@@ -86,6 +86,8 @@ error eraseDisk(disk_id id, int block_debut, int block_fin);
 // Fonctions blocks
 void blockToLtleIndian(block b);
 error writeIntToBlock(block b, int position, uint32_t number);
+error writeStrToBlock(block b, int position, char *str, int size);
+error writeDirEntryToBlock(block b, int position, DIR_ENTRY dir_ent);
 uint32_t readBlockToInt(block b, int position);
 error eraseBlock(block b, int debut, int fin);
 void printBlock(block b);

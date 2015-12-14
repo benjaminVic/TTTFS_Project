@@ -182,11 +182,9 @@ error init_partition(char* disk_name, int partition, uint32_t file_count){
 	}
 
 	block b_racine;
-	int pos_blck_racine = first_partition_blck + size_of_table + 2;
+	int pos_blck_racine = first_partition_blck + size_of_table + 1;
 	// On tente de lire le block concernant le fichier 0 (la racine)
 	read_block(0, b_racine, pos_blck_racine);
-
-	printBlock(b_racine);
 
 	// Création des entrées de répertoire "." et ".." de la racine
 	DIR_ENTRY dot;
@@ -201,7 +199,14 @@ error init_partition(char* disk_name, int partition, uint32_t file_count){
 	double_dot.name[1] = '.';
 	double_dot.name[2] = '\0';
 
-	//writeDirEntryToBlock();
+	// Ecriture dans le block
+	writeDirEntryToBlock(b_racine, 0, dot);
+	writeDirEntryToBlock(b_racine, 1, double_dot);
+
+	printBlock(b_racine);
+
+	// Ecriture du block sur le disque
+	write_block(0, b_racine, pos_blck_racine);
 
 
 	stop_disk(0);
