@@ -203,10 +203,19 @@ error init_partition(char* disk_name, int partition, uint32_t file_count){
 	writeDirEntryToBlock(b_racine, 0, dot);
 	writeDirEntryToBlock(b_racine, 1, double_dot);
 
-	printBlock(b_racine);
+	//printBlock(b_racine);
 
 	// Ecriture du block sur le disque
 	write_block(0, b_racine, pos_blck_racine);
+
+
+	// ############### TEST #################
+	read_block(0, b_racine, pos_blck_racine);
+	//printBlock(b_racine);
+	
+	DIR_ENTRY testEntry;
+	readBlockToDirEntry(b_racine, 1, &testEntry);
+	printf("%s\n", testEntry.name);
 
 
 	stop_disk(0);

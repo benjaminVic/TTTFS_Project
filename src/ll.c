@@ -208,6 +208,19 @@ error writeStrToBlock(block b, int position, char *str, int size){
 		return _POS_IN_BLCK_TOO_BIG;
 }
 
+error readBlockToStr(block b, int position, char *str, int size){
+	if((position + size) < BLCK_SIZE){
+
+		for(int i=0; i<size; i++){
+			str[i] = b[position+i];
+		}
+
+		return _NOERROR;
+	}
+	else
+		return _POS_IN_BLCK_TOO_BIG;
+}
+
 error writeDirEntryToBlock(block b, int position, DIR_ENTRY dir_ent){
 	// Si la position est < (BLCK_SIZE/32) 
 	if(position < (BLCK_SIZE/32)){
@@ -216,6 +229,21 @@ error writeDirEntryToBlock(block b, int position, DIR_ENTRY dir_ent){
 
 		writeIntToBlock(b, position, dir_ent.number);
 		writeStrToBlock(b, (position*4)+4, dir_ent.name, 28);
+
+		return _NOERROR;
+	}
+	else
+		return _POS_IN_BLCK_TOO_BIG;
+}
+
+error readBlockToDirEntry(block b, int position, DIR_ENTRY *dir_ent){
+	// Si la position est < (BLCK_SIZE/32) 
+	if(position < (BLCK_SIZE/32)){
+
+		position = (position * 32);
+
+		dir_ent->number = readBlockToInt(b, position);
+		readBlockToStr(b, (position*4)+4, dir_ent->name, 28);
 
 		return _NOERROR;
 	}
