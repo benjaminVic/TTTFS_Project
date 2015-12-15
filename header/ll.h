@@ -87,7 +87,6 @@ error getFirstPartitionBlck(disk_id id, int partition, uint32_t *number);
 
 error readDiskInfos(disk_id id, DISK_INFO *infDisk);
 
-
 error readPartitionInfos(disk_id id, PARTITION_INFO *infPartition, int partition);
 error writePartitionInfos(disk_id id, PARTITION_INFO infPartition, int partition);
 
