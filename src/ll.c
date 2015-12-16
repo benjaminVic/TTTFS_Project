@@ -311,6 +311,8 @@ char* strError(error err){
 		return "Pas assez de place dans la table des fichiers.";
 	if(err == _POS_IN_PARTITION_TOO_BIG)
 		return "Pas assez de place dans la partition.";
+	if(err == _TABLE_IS_FULL)
+		return "La table des fichiers est pleine.";
 
 	return "Aucune erreur.";
 }
@@ -476,13 +478,15 @@ error eraseBlock(block b, int debut, int fin){
 // Fonctions table des fichiers
 // ##########################################################
 
-void initFilesTable(disk_id id, int partition){
+error initFilesTable(disk_id id, int partition){
 	uint32_t size_table;
 	// Création d'une entrée vierge
 	FILE_ENTRY file; 
 	initFileEntry(&file);
 
-	getFilesTableSize(id, partition, &size_table);
+	error getSize = getFilesTableSize(id, partition, &size_table);
+	if(getSize != 0)
+		return getSize;
 
 	// Ecriture d'une entrée vierge dans tout les emplacements de la table
 	for(int i=0; i < 16 * size_table; i++){
@@ -494,6 +498,8 @@ void initFilesTable(disk_id id, int partition){
 		// Ecriture de l'entrée
 		writeFileEntryToTable(id, partition, file, i);
 	}
+
+	return _NOERROR;
 }
 
 error writeFileEntryToTable(disk_id id, int partition, FILE_ENTRY file_ent, int file_pos){
@@ -502,8 +508,13 @@ error writeFileEntryToTable(disk_id id, int partition, FILE_ENTRY file_ent, int 
 	uint32_t first_partition_blck;
 
 	// On récupère la taille de la table et le premier bloc de la partition
-	getFilesTableSize(id, partition, &size_table);
-	getFirstPartitionBlck(id, partition, &first_partition_blck);
+	error getSize = getFilesTableSize(id, partition, &size_table);
+	if(getSize != 0)
+		return getSize;
+
+	error getFirst = getFirstPartitionBlck(id, partition, &first_partition_blck);
+	if(getFirst != 0)
+		return getFirst;
 
 	if(file_pos >= 16 * size_table)
 		return _POS_IN_TABLE_TOO_BIG;
@@ -538,8 +549,13 @@ error readFileEntryFromTable(disk_id id, int partition, FILE_ENTRY *file_ent, in
 	uint32_t first_partition_blck;
 
 	// On récupère la taille de la table et le premier bloc de la partition
-	getFilesTableSize(id, partition, &size_table);
-	getFirstPartitionBlck(id, partition, &first_partition_blck);
+	error getSize = getFilesTableSize(id, partition, &size_table);
+	if(getSize != 0)
+		return getSize;
+
+	error getFirst = getFirstPartitionBlck(id, partition, &first_partition_blck);
+	if(getFirst != 0)
+		return getFirst;
 
 	if(file_pos >= 16 * size_table)
 		return _POS_IN_TABLE_TOO_BIG;
@@ -561,6 +577,44 @@ error readFileEntryFromTable(disk_id id, int partition, FILE_ENTRY *file_ent, in
 	file_ent->tfs_indirect1 = readBlockToInt(b, (pos_in_blck + 13));
 	file_ent->tfs_indirect2 = readBlockToInt(b, (pos_in_blck + 14));
 	file_ent->tfs_next_free = readBlockToInt(b, (pos_in_blck + 15));
+
+	return _NOERROR;
+}
+
+error addEntryToTable(disk_id id, int partition, FILE_ENTRY file_ent){
+	PARTITION_INFO infPartition;
+	FILE_ENTRY oldFileEntry;
+
+	// Récupération des informations
+	error read_infos_part = readPartitionInfos(id, &infPartition, partition);
+	if(read_infos_part != 0)
+		return read_infos_part;
+
+	// Si il n'y a plus de place dans la table des fichiers
+	if(infPartition.TTTFS_VOLUME_FREE_FILE_COUNT == 0)
+		return _TABLE_IS_FULL;
+
+	// Lecture de la premiere entrée libre
+	error read_file_entry = readFileEntryFromTable(0, partition, &oldFileEntry, infPartition.TTTFS_VOLUME_FIRST_FREE_FILE);
+	if(read_file_entry != 0)
+		return read_file_entry;
+
+	// Suppression du next_free
+	setNextFreeFile(&file_ent, 0);
+
+	// Ecriture de la racine dans le premier emplacement libre de la table
+	error write_file_entry = writeFileEntryToTable(0, partition, file_ent, infPartition.TTTFS_VOLUME_FIRST_FREE_FILE);
+	if(write_file_entry != 0)
+		return write_file_entry;
+
+	// Modification des informations
+	infPartition.TTTFS_VOLUME_FREE_FILE_COUNT -= 1;
+	infPartition.TTTFS_VOLUME_FIRST_FREE_FILE = oldFileEntry.tfs_next_free;
+
+	// Ecriture des nouvelles informations
+	error write_infos_part = writePartitionInfos(id, infPartition, partition);
+	if(write_infos_part != 0)
+		return write_infos_part;
 
 	return _NOERROR;
 }

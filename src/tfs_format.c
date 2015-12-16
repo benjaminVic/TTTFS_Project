@@ -108,7 +108,7 @@ error init_partition(char* disk_name, int partition, uint32_t file_count){
 	infPartition.TTTFS_VOLUME_BLOCK_SIZE = BLCK_SIZE;
 	infPartition.TTTFS_VOLUME_BLOCK_COUNT = size_of_partition;
 	infPartition.TTTFS_VOLUME_FREE_BLOCK_COUNT = size_of_partition - size_of_table - 1; // nombre de blocs - (description + ceux de la table)
-	infPartition.TTTFS_VOLUME_FIRST_FREE_BLOCK = (first_partition_blck + size_of_table + 1); // (Numero de bloc DISK donc + 1 pour sauter les informations du DISK)
+	infPartition.TTTFS_VOLUME_FIRST_FREE_BLOCK = (first_partition_blck + size_of_table); // (Numero de bloc DISK donc + 1 pour sauter les informations du DISK)
 	infPartition.TTTFS_VOLUME_MAX_FILE_COUNT = file_count; 
 	infPartition.TTTFS_VOLUME_FREE_FILE_COUNT = file_count;
 	infPartition.TTTFS_VOLUME_FIRST_FREE_FILE = 0;
@@ -133,17 +133,23 @@ error init_partition(char* disk_name, int partition, uint32_t file_count){
 
 	setTypeFile(&racine, 1);
 	setSubTypeFile(&racine, 0);
-	addDirectBlock(&racine, size_of_table+1);
-	setNextFreeFile(&racine, 1);
+	//addDirectBlock(&racine, size_of_table+1);
 
-	// Ecriture de la racine dans l'emplacement 0 de la table
-	error write_file_entry = writeFileEntryToTable(0, partition, racine, 0);
-	if(write_file_entry != 0)
-		fprintf(stderr, "Erreur %d: %s\n", write_file_entry, strError(write_file_entry));
+	error add_entry = addEntryToTable(0, partition, racine);
+	if(add_entry != 0)
+		fprintf(stderr, "Erreur %d: %s\n", add_entry, strError(add_entry));
 
+ 	// ##################### TEST DE LECTURE ########################
+	// Récupération des informations
+	error read_infos_part = readPartitionInfos(0, &infPartition, partition);
+	if(read_infos_part != 0)
+		return read_infos_part;
+	
+	printInfoPartition(infPartition);
+	// ##############################################################
 
 	FILE_ENTRY lectureRacine;
-	
+
 	error read_file_entry = readFileEntryFromTable(0, partition, &lectureRacine, 0);
 	if(read_file_entry != 0)
 		fprintf(stderr, "Erreur %d: %s\n", read_file_entry, strError(read_file_entry));
