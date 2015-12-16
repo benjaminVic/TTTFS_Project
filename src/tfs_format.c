@@ -55,15 +55,12 @@ error init_partition(char* disk_name, int partition, uint32_t file_count){
 		return start;
 	}
 
-	// On récupère les informations de la partition
-	error read_infos_part = readPartitionInfos(0, &infPartition, partition);
-	if(read_infos_part != 0){
-		stop_disk(0);
-		return read_infos_part;
-	}
-
 	// On récupère le numero du premier block de cette partition et la taille
-	size_of_partition = infPartition.TTTFS_VOLUME_BLOCK_COUNT;
+	error sizePartition = getPartitionSize(0, partition, &size_of_partition);
+	if(sizePartition != 0){
+		stop_disk(0);
+		return sizePartition;
+	}
 
 	error fst_blck = getFirstPartitionBlck(0, partition, &first_partition_blck);
 	if(fst_blck != 0){
@@ -110,11 +107,11 @@ error init_partition(char* disk_name, int partition, uint32_t file_count){
 	infPartition.TTTFS_MAGIC_NUMBER = MAGIC_NUMBER;
 	infPartition.TTTFS_VOLUME_BLOCK_SIZE = BLCK_SIZE;
 	infPartition.TTTFS_VOLUME_BLOCK_COUNT = size_of_partition;
-	infPartition.TTTFS_VOLUME_FREE_BLOCK_COUNT = file_count-1; // Le nombre de fichier - la racine
-	infPartition.TTTFS_VOLUME_FIRST_FREE_BLOCK = size_of_table+1; // Le block suivant la table des fichiers
+	infPartition.TTTFS_VOLUME_FREE_BLOCK_COUNT = size_of_partition - size_of_table - 1; // nombre de blocs - (description + ceux de la table)
+	infPartition.TTTFS_VOLUME_FIRST_FREE_BLOCK = (first_partition_blck + size_of_table + 1); // (Numero de bloc DISK donc + 1 pour sauter les informations du DISK)
 	infPartition.TTTFS_VOLUME_MAX_FILE_COUNT = file_count; 
-	infPartition.TTTFS_VOLUME_FREE_FILE_COUNT = file_count-1; // Nombre de fichier - la racine
-	infPartition.TTTFS_VOLUME_FIRST_FREE_FILE = 1; // Le 0 sera déjà pris pour la racine
+	infPartition.TTTFS_VOLUME_FREE_FILE_COUNT = file_count;
+	infPartition.TTTFS_VOLUME_FIRST_FREE_FILE = 0;
 
 	// On écrit les données dans le premier block de la partition (Description block)
 	error write_desc_block = writePartitionInfos(0, infPartition, partition);
@@ -123,25 +120,37 @@ error init_partition(char* disk_name, int partition, uint32_t file_count){
 		return write_desc_block;
 	}
 
+	printInfoPartition(infPartition);
+
 	//______________________________________________________________________________
 	// Initialisation de la table des fichiers
-	block files_table[size_of_table]; // Tableau de blocks
-	initFilesTable(files_table, size_of_table);
+	initFilesTable(0, partition);
 	//______________________________________________________________________________
 
 	// Création de l'entrée racine
 	FILE_ENTRY racine; 
 	initFileEntry(&racine);
+
 	setTypeFile(&racine, 1);
 	setSubTypeFile(&racine, 0);
 	addDirectBlock(&racine, size_of_table+1);
-	setNextFreeFile(&racine, 0);
+	setNextFreeFile(&racine, 1);
 
-	// Ecriture de la racine dans la table à la position 0
-	writeFileEntryToTable(files_table, size_of_table, racine, 0);
-	// Ecriture de la table sur la partition
-	writeFilesTable(0, files_table, size_of_table, (first_partition_blck + 1), size_of_partition);
+	// Ecriture de la racine dans l'emplacement 0 de la table
+	error write_file_entry = writeFileEntryToTable(0, partition, racine, 0);
+	if(write_file_entry != 0)
+		fprintf(stderr, "Erreur %d: %s\n", write_file_entry, strError(write_file_entry));
 
+
+	FILE_ENTRY lectureRacine;
+	
+	error read_file_entry = readFileEntryFromTable(0, partition, &lectureRacine, 0);
+	if(read_file_entry != 0)
+		fprintf(stderr, "Erreur %d: %s\n", read_file_entry, strError(read_file_entry));
+
+	printFileEntry(lectureRacine);
+
+/*
 	// Création des entrées de répertoire "." et ".." de la racine
 	DIR_ENTRY dot;
 	DIR_ENTRY double_dot;
@@ -156,22 +165,24 @@ error init_partition(char* disk_name, int partition, uint32_t file_count){
 	double_dot.name[2] = '\0';
 
 	block b_racine;
-	int pos_blck_racine = first_partition_blck + size_of_table + 1;
 	// On tente de lire le block concernant le fichier 0 (la racine)
-	read_block(0, b_racine, pos_blck_racine);
+	read_block(0, b_racine, infPartition.TTTFS_VOLUME_FIRST_FREE_BLOCK);
 
 	// Ecriture dans le block
 	writeDirEntryToBlock(b_racine, 0, dot);
 	writeDirEntryToBlock(b_racine, 1, double_dot);
 	// Ecriture du block sur le disque
-	write_block(0, b_racine, pos_blck_racine);
+	write_block(0, b_racine, infPartition.TTTFS_VOLUME_FIRST_FREE_BLOCK);
+
+	//printBlock(b_racine);
 
 	//########## TEST LECTURE DIR ENTRY ############
 	DIR_ENTRY testEntry;
-	read_block(0, b_racine, pos_blck_racine);
+	read_block(0, b_racine, infPartition.TTTFS_VOLUME_FIRST_FREE_BLOCK);
 	readBlockToDirEntry(b_racine, 1, &testEntry);
 	printf("%s\n", testEntry.name);
 	//##############################################
+*/
 
 	stop_disk(0);
 	return _NOERROR;

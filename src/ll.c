@@ -147,6 +147,44 @@ error getFirstPartitionBlck(disk_id id, int partition, uint32_t *number){
 	return _NOERROR;
 }
 
+error getPartitionSize(disk_id id, int partition, uint32_t *number){
+	DISK_INFO infDisk;
+
+	// Si le disque n'est pas monté
+	if((_disks[id].flag & _MOUNTED) == 0)
+		return _DISK_UNMOUNTED;
+
+	// Récupération des informations du disque
+	readDiskInfos(0, &infDisk);
+
+	// Vérification de l'existence de la partition
+	if(partition >= infDisk.nb_partitions)
+		return _PARTITION_NOT_FOUND;
+
+	*number = infDisk.p_sizes[partition];
+
+	return _NOERROR;
+}
+
+error getFilesTableSize(disk_id id, int partition, uint32_t *number){
+	PARTITION_INFO infPartition;
+
+	// On récupère les informations de la partition
+	error read_infos_part = readPartitionInfos(0, &infPartition, partition);
+	if(read_infos_part != 0){
+		return read_infos_part;
+	}
+
+	// Calcul de la taille nécessaire pour la table des fichiers (64o par entrée)
+	// Dans un block de de la table on peut mettre 1024/64 = 16 fichiers
+	if((infPartition.TTTFS_VOLUME_MAX_FILE_COUNT % 16) == 0)
+		*number = (infPartition.TTTFS_VOLUME_MAX_FILE_COUNT / 16);
+	else
+		*number = (infPartition.TTTFS_VOLUME_MAX_FILE_COUNT / 16) + 1;
+
+	return _NOERROR;
+}
+
 error readDiskInfos(disk_id id, DISK_INFO *infDisk){
 	// Si le disque n'est pas monté
 	if((_disks[id].flag & _MOUNTED) == 0)
@@ -229,6 +267,19 @@ error writePartitionInfos(disk_id id, PARTITION_INFO infPartition, int partition
 	}
 
 	return _NOERROR;
+}
+
+void printInfoPartition(PARTITION_INFO infPartition){
+	printf("%s\n", "=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=");
+	printf("MAGIC NUMBER -> %d\n", infPartition.TTTFS_MAGIC_NUMBER);
+	printf("BLOCK_SIZE -> %d\n", infPartition.TTTFS_VOLUME_BLOCK_SIZE);
+	printf("BLOCK_COUNT -> %d\n", infPartition.TTTFS_VOLUME_BLOCK_COUNT);
+	printf("FREE_BLOCK_COUNT -> %d\n", infPartition.TTTFS_VOLUME_FREE_BLOCK_COUNT);
+	printf("FIRST_FREE_BLOCK -> %d\n", infPartition.TTTFS_VOLUME_FIRST_FREE_BLOCK);
+	printf("MAX_FILE_COUNT -> %d\n", infPartition.TTTFS_VOLUME_MAX_FILE_COUNT);
+	printf("FREE_FILE_COUNT -> %d\n", infPartition.TTTFS_VOLUME_FREE_FILE_COUNT);
+	printf("FIRST_FREE_FILE -> %d\n", infPartition.TTTFS_VOLUME_FIRST_FREE_FILE);
+	printf("%s\n", "=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=");
 }
 
 // ##########################################################
@@ -425,85 +476,112 @@ error eraseBlock(block b, int debut, int fin){
 // Fonctions table des fichiers
 // ##########################################################
 
-void initFilesTable(block *table, int size){
-
-	// Mise à 0 de tout les octets de tout les blocs
-	for(int i=0; i < size; i++){
-		eraseBlock(table[i], 0, 256);
-	}
-	
+void initFilesTable(disk_id id, int partition){
+	uint32_t size_table;
 	// Création d'une entrée vierge
 	FILE_ENTRY file; 
 	initFileEntry(&file);
 
+	getFilesTableSize(id, partition, &size_table);
+
 	// Ecriture d'une entrée vierge dans tout les emplacements de la table
-	for(int i=0; i < 16 * size; i++){
+	for(int i=0; i < 16 * size_table; i++){
 		// Initialisation de la chaine des entrées libres
-		if(i < (16 * size)-1)
+		if(i < (16 * size_table)-1)
 			setNextFreeFile(&file, i+1);
 		else
 			setNextFreeFile(&file, i);
 		// Ecriture de l'entrée
-		writeFileEntryToTable(table, size, file, i);
+		writeFileEntryToTable(id, partition, file, i);
 	}
 }
 
-error writeFileEntryToTable(block *table, int size_table, FILE_ENTRY file_ent, int file_pos){
+error writeFileEntryToTable(disk_id id, int partition, FILE_ENTRY file_ent, int file_pos){
+	block b;
+	uint32_t size_table;
+	uint32_t first_partition_blck;
+
+	// On récupère la taille de la table et le premier bloc de la partition
+	getFilesTableSize(id, partition, &size_table);
+	getFirstPartitionBlck(id, partition, &first_partition_blck);
+
 	if(file_pos >= 16 * size_table)
 		return _POS_IN_TABLE_TOO_BIG;
-	else{
-		int indx_blck_tab = file_pos / 16;
-		int pos_in_blck = (file_pos % 16)*16;
 
-		// Ecriture de l'entrée de fichier
-		writeIntToBlock(table[indx_blck_tab], pos_in_blck, file_ent.tfs_size);
-		writeIntToBlock(table[indx_blck_tab], (pos_in_blck + 1), file_ent.tfs_type);
-		writeIntToBlock(table[indx_blck_tab], (pos_in_blck + 2), file_ent.tfs_subtype);
-		for(int i=0; i<10; i++){
-			writeIntToBlock(table[indx_blck_tab], (pos_in_blck + 3 + i), file_ent.tfs_direct[i]);
-		}
-		writeIntToBlock(table[indx_blck_tab], (pos_in_blck + 13), file_ent.tfs_indirect1);
-		writeIntToBlock(table[indx_blck_tab], (pos_in_blck + 14), file_ent.tfs_indirect2);
-		writeIntToBlock(table[indx_blck_tab], (pos_in_blck + 15), file_ent.tfs_next_free);
 
-		return _NOERROR;
+	int indx_blck_tab = file_pos / 16; // Position dans le bon bloc de la table
+	int pos_in_blck = (file_pos % 16)*16; // Position du fichier dans le bloc
+
+	// Lecture du bloc où l'on va écrire l'entrée de fichier
+	read_block(id, b, (first_partition_blck + 1 + indx_blck_tab));
+
+	// Ecriture dans le bloc de l'entrée de fichier
+	writeIntToBlock(b, pos_in_blck, file_ent.tfs_size);
+	writeIntToBlock(b, (pos_in_blck + 1), file_ent.tfs_type);
+	writeIntToBlock(b, (pos_in_blck + 2), file_ent.tfs_subtype);
+	for(int i=0; i<10; i++){
+		writeIntToBlock(b, (pos_in_blck + 3 + i), file_ent.tfs_direct[i]);
 	}
-}
+	writeIntToBlock(b, (pos_in_blck + 13), file_ent.tfs_indirect1);
+	writeIntToBlock(b, (pos_in_blck + 14), file_ent.tfs_indirect2);
+	writeIntToBlock(b, (pos_in_blck + 15), file_ent.tfs_next_free);
 
-error writeFilesTable(disk_id id, block *table, int size_table, int position, int size_partition){
-	// Si le disque n'est pas monté
-	if((_disks[id].flag & _MOUNTED) == 0)
-		return _DISK_UNMOUNTED;
-
-	if(position + size_table >= size_partition)
-		return _POS_IN_PARTITION_TOO_BIG;
-
-	for(int i=0; i < size_table; i++){
-		write_block(id, table[i], position + i);
-	}
+	// Réécriture du bloc
+	write_block(id, b, (first_partition_blck + 1 + indx_blck_tab));
 
 	return _NOERROR;
 }
 
-error readFilesTable(disk_id id, block *table, int size_table, int partition){
-	uint32_t file_count = 0;
-	PARTITION_INFO infPartition;
+error readFileEntryFromTable(disk_id id, int partition, FILE_ENTRY *file_ent, int file_pos){
+	block b;
+	uint32_t size_table;
+	uint32_t first_partition_blck;
 
-	// Si le disque n'est pas monté
-	if((_disks[id].flag & _MOUNTED) == 0)
-		return _DISK_UNMOUNTED;
+	// On récupère la taille de la table et le premier bloc de la partition
+	getFilesTableSize(id, partition, &size_table);
+	getFirstPartitionBlck(id, partition, &first_partition_blck);
 
-	// On récupère les informations de la partition
-	error read_infos_part = readPartitionInfos(0, &infPartition, partition);
-	if(read_infos_part != 0){
-		return read_infos_part;
+	if(file_pos >= 16 * size_table)
+		return _POS_IN_TABLE_TOO_BIG;
+
+
+	int indx_blck_tab = file_pos / 16; // Position dans le bon bloc de la table
+	int pos_in_blck = (file_pos % 16)*16; // Position du fichier dans le bloc
+
+	// Lecture du bloc qui contient l'entrée du fichier voulu
+	read_block(id, b, (first_partition_blck + 1 + indx_blck_tab));
+
+	// Ecriture de *file_ent
+	file_ent->tfs_size = readBlockToInt(b, pos_in_blck);
+	file_ent->tfs_type = readBlockToInt(b, (pos_in_blck + 1));
+	file_ent->tfs_subtype = readBlockToInt(b, (pos_in_blck + 2));
+	for(int i=0; i<10; i++){
+		file_ent->tfs_direct[i] = readBlockToInt(b, (pos_in_blck + 3 + i));
 	}
-
-	file_count = infPartition.TTTFS_VOLUME_MAX_FILE_COUNT;
+	file_ent->tfs_indirect1 = readBlockToInt(b, (pos_in_blck + 13));
+	file_ent->tfs_indirect2 = readBlockToInt(b, (pos_in_blck + 14));
+	file_ent->tfs_next_free = readBlockToInt(b, (pos_in_blck + 15));
 
 	return _NOERROR;
 }
 
+void printFileEntry(FILE_ENTRY file_ent){
+	printf("%s\n", "=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=");
+	printf("Size -> %d\n", file_ent.tfs_size);
+	printf("Type -> %d\n", file_ent.tfs_type);
+	printf("SubType -> %d\n", file_ent.tfs_subtype);
+	printf("Direct_blck -> [");
+	for(int i=0; i<10; i++){
+		if(i<9)
+			printf("%d, ", file_ent.tfs_direct[i]);
+		else
+			printf("%d]\n", file_ent.tfs_direct[i]);
+	}
+	printf("Indirect1 -> %d\n", file_ent.tfs_indirect1);
+	printf("Indirect2 -> %d\n", file_ent.tfs_indirect2);
+	printf("Next_free -> %d\n", file_ent.tfs_next_free);
+	printf("%s\n", "=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=");
+}
 
 // ##########################################################
 // Fonctions entrées de fichier
