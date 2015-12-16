@@ -504,6 +504,47 @@ error initFilesTable(disk_id id, int partition){
 	return _NOERROR;
 }
 
+error initFreeBlockChain(disk_id id, int partition){
+	uint32_t size_table;
+	uint32_t first_partition_blck;
+	PARTITION_INFO infPartition;
+	block b;
+
+	error getSize = getFilesTableSize(id, partition, &size_table);
+	if(getSize != 0)
+		return getSize;
+
+	error fst_blck = getFirstPartitionBlck(0, partition, &first_partition_blck);
+	if(fst_blck != 0){
+		return fst_blck;
+	}
+
+	// Récupération des informations
+	error read_infos_part = readPartitionInfos(id, &infPartition, partition);
+	if(read_infos_part != 0)
+		return read_infos_part;
+
+	eraseBlock(b, 0, 256); // Mise à zero du bloc
+
+	// Chainage des blocs
+	int k = infPartition.TTTFS_VOLUME_FIRST_FREE_BLOCK;
+	for(int i=(first_partition_blck + k); i <= infPartition.TTTFS_VOLUME_BLOCK_COUNT; i++){
+		
+		if(i < infPartition.TTTFS_VOLUME_BLOCK_COUNT)
+			writeIntToBlock(b, 255, k+1);
+		else
+			writeIntToBlock(b, 255, k);
+
+		error write = write_block(id, b, i);
+		if(write != 0)
+			return write;
+
+		k++;
+	}
+
+	return _NOERROR;
+}
+
 error writeFileEntryToTable(disk_id id, int partition, FILE_ENTRY file_ent, int file_pos){
 	block b;
 	uint32_t size_table;

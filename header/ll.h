@@ -120,6 +120,7 @@ void printBlock(block b);
 //_________________________________________________________
 // Fonctions table des fichiers
 error initFilesTable(disk_id id, int partition);
+error initFreeBlockChain(disk_id id, int partition);
 
 error writeFileEntryToTable(disk_id, int partition, FILE_ENTRY file_ent, int file_pos);
 error readFileEntryFromTable(disk_id, int partition, FILE_ENTRY *file_ent, int file_pos);

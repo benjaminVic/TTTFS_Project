@@ -96,7 +96,7 @@ error init_partition(char* disk_name, int partition, uint32_t file_count){
 		// On efface la partition (de first_partition_blck à size_of_partition+1)
 		error erase_disk = eraseDisk(0, first_partition_blck, size_of_partition+1);
 		if(erase_disk != 0)
-			fprintf(stderr, "Erreur %d: %s\n", erase_disk, strError(erase_disk));
+			return erase_disk;
 	}
 	else{
 		stop_disk(0);
@@ -108,7 +108,7 @@ error init_partition(char* disk_name, int partition, uint32_t file_count){
 	infPartition.TTTFS_VOLUME_BLOCK_SIZE = BLCK_SIZE;
 	infPartition.TTTFS_VOLUME_BLOCK_COUNT = size_of_partition;
 	infPartition.TTTFS_VOLUME_FREE_BLOCK_COUNT = size_of_partition - size_of_table - 1; // nombre de blocs - (description + ceux de la table)
-	infPartition.TTTFS_VOLUME_FIRST_FREE_BLOCK = (first_partition_blck + size_of_table); // (Numero de bloc DISK donc + 1 pour sauter les informations du DISK)
+	infPartition.TTTFS_VOLUME_FIRST_FREE_BLOCK = size_of_table + 1; // (Numero de bloc DISK donc + 1 pour sauter les informations du DISK)
 	infPartition.TTTFS_VOLUME_MAX_FILE_COUNT = file_count; 
 	infPartition.TTTFS_VOLUME_FREE_FILE_COUNT = file_count;
 	infPartition.TTTFS_VOLUME_FIRST_FREE_FILE = 0;
@@ -123,8 +123,9 @@ error init_partition(char* disk_name, int partition, uint32_t file_count){
 	printInfoPartition(infPartition);
 
 	//______________________________________________________________________________
-	// Initialisation de la table des fichiers
+	// Initialisation de la table des fichiers et du chainage des blocs libres
 	initFilesTable(0, partition);
+	initFreeBlockChain(0, partition);
 	//______________________________________________________________________________
 
 	// Création de l'entrée racine
@@ -135,33 +136,32 @@ error init_partition(char* disk_name, int partition, uint32_t file_count){
 	//addDirectBlock(&racine, size_of_table+1);
 
 	// Ajout de l'entrée racine dans la table de la partition
-	error add_entry = addFileEntryToTable(0, partition, racine);
-	if(add_entry != 0)
-		fprintf(stderr, "Erreur %d: %s\n", add_entry, strError(add_entry));
+	addFileEntryToTable(0, partition, racine);
 
+
+	// ##################### TESTS ########################
+	FILE_ENTRY testEntry; 
+	initFileEntry(&testEntry);
+
+	addFileEntryToTable(0, partition, testEntry);
 
 	// Suppression de l'entrée 0 de la table de la partition
-	error remove_entry = removeFileEntryInTable(0, partition, 0);
-	if(remove_entry != 0)
-		fprintf(stderr, "Erreur %d: %s\n", remove_entry, strError(remove_entry));
+	//removeFileEntryInTable(0, partition, 1);
 
-
- 	// ##################### TEST DE LECTURE ########################
+ 	
 	// Récupération des informations
 	error read_infos_part = readPartitionInfos(0, &infPartition, partition);
 	if(read_infos_part != 0)
 		return read_infos_part;
 	
-	printInfoPartition(infPartition);
+	//printInfoPartition(infPartition);
+
+	readFileEntryFromTable(0, partition, &racine, 0);
+	readFileEntryFromTable(0, partition, &testEntry, 1);
+
+	//printFileEntry(racine);
+	//printFileEntry(testEntry);
 	// ##############################################################
-
-	FILE_ENTRY lectureRacine;
-
-	error read_file_entry = readFileEntryFromTable(0, partition, &lectureRacine, 0);
-	if(read_file_entry != 0)
-		fprintf(stderr, "Erreur %d: %s\n", read_file_entry, strError(read_file_entry));
-
-	printFileEntry(lectureRacine);
 
 /*
 	// Création des entrées de répertoire "." et ".." de la racine
