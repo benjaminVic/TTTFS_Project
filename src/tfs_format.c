@@ -130,14 +130,21 @@ error init_partition(char* disk_name, int partition, uint32_t file_count){
 	// Création de l'entrée racine
 	FILE_ENTRY racine; 
 	initFileEntry(&racine);
-
 	setTypeFile(&racine, 1);
 	setSubTypeFile(&racine, 0);
 	//addDirectBlock(&racine, size_of_table+1);
 
-	error add_entry = addEntryToTable(0, partition, racine);
+	// Ajout de l'entrée racine dans la table de la partition
+	error add_entry = addFileEntryToTable(0, partition, racine);
 	if(add_entry != 0)
 		fprintf(stderr, "Erreur %d: %s\n", add_entry, strError(add_entry));
+
+
+	// Suppression de l'entrée 0 de la table de la partition
+	error remove_entry = removeFileEntryInTable(0, partition, 0);
+	if(remove_entry != 0)
+		fprintf(stderr, "Erreur %d: %s\n", remove_entry, strError(remove_entry));
+
 
  	// ##################### TEST DE LECTURE ########################
 	// Récupération des informations

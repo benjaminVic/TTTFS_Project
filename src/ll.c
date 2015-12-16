@@ -313,6 +313,8 @@ char* strError(error err){
 		return "Pas assez de place dans la partition.";
 	if(err == _TABLE_IS_FULL)
 		return "La table des fichiers est pleine.";
+	if(err == _CANNOT_REMOVE_FILE_ENTRY)
+		return "La racine ne peut-être supprimée.";
 
 	return "Aucune erreur.";
 }
@@ -581,7 +583,7 @@ error readFileEntryFromTable(disk_id id, int partition, FILE_ENTRY *file_ent, in
 	return _NOERROR;
 }
 
-error addEntryToTable(disk_id id, int partition, FILE_ENTRY file_ent){
+error addFileEntryToTable(disk_id id, int partition, FILE_ENTRY file_ent){
 	PARTITION_INFO infPartition;
 	FILE_ENTRY oldFileEntry;
 
@@ -610,6 +612,49 @@ error addEntryToTable(disk_id id, int partition, FILE_ENTRY file_ent){
 	// Modification des informations
 	infPartition.TTTFS_VOLUME_FREE_FILE_COUNT -= 1;
 	infPartition.TTTFS_VOLUME_FIRST_FREE_FILE = oldFileEntry.tfs_next_free;
+
+	// Ecriture des nouvelles informations
+	error write_infos_part = writePartitionInfos(id, infPartition, partition);
+	if(write_infos_part != 0)
+		return write_infos_part;
+
+	return _NOERROR;
+}
+
+error removeFileEntryInTable(disk_id id, int partition, int file_pos){
+	uint32_t size_table;
+	PARTITION_INFO infPartition;
+	FILE_ENTRY emptyFile;
+
+	if(file_pos == 0)
+		return _CANNOT_REMOVE_FILE_ENTRY;
+
+	// On récupère la taille de la table et le premier bloc de la partition
+	error getSize = getFilesTableSize(id, partition, &size_table);
+	if(getSize != 0)
+		return getSize;
+
+	if(file_pos >= 16 * size_table)
+		return _POS_IN_TABLE_TOO_BIG;
+
+	// Récupération des informations
+	error read_infos_part = readPartitionInfos(id, &infPartition, partition);
+	if(read_infos_part != 0)
+		return read_infos_part;
+
+	// On initialise une nouvelle entrée en la chainant avec la premiere actuellement libre
+	initFileEntry(&emptyFile);
+	setNextFreeFile(&emptyFile, infPartition.TTTFS_VOLUME_FIRST_FREE_FILE);
+
+	// Ecriture de l'entrée libre
+	error write_file_entry = writeFileEntryToTable(0, partition, emptyFile, file_pos);
+	if(write_file_entry != 0)
+		return write_file_entry;
+
+	// On donne au FIRST_FREE_FILE la valeur de la position du fichier effacé
+	infPartition.TTTFS_VOLUME_FIRST_FREE_FILE = file_pos;
+	// Puis on incrémente le nombre de fichier disponibles
+	infPartition.TTTFS_VOLUME_FREE_FILE_COUNT += 1;
 
 	// Ecriture des nouvelles informations
 	error write_infos_part = writePartitionInfos(id, infPartition, partition);

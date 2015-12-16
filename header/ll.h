@@ -30,6 +30,7 @@
 #define _POS_IN_TABLE_TOO_BIG 11
 #define _POS_IN_PARTITION_TOO_BIG 12
 #define _TABLE_IS_FULL 13
+#define _CANNOT_REMOVE_FILE_ENTRY 14
 
 // Définition des types
 typedef int error;
@@ -119,10 +120,12 @@ void printBlock(block b);
 //_________________________________________________________
 // Fonctions table des fichiers
 error initFilesTable(disk_id id, int partition);
+
 error writeFileEntryToTable(disk_id, int partition, FILE_ENTRY file_ent, int file_pos);
 error readFileEntryFromTable(disk_id, int partition, FILE_ENTRY *file_ent, int file_pos);
 
-error addEntryToTable(disk_id id, int partition, FILE_ENTRY file_ent);
+error addFileEntryToTable(disk_id id, int partition, FILE_ENTRY file_ent);
+error removeFileEntryInTable(disk_id id, int partition, int file_pos);
 
 void printFileEntry(FILE_ENTRY file_ent);
 
