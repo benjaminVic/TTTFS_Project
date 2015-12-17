@@ -138,6 +138,8 @@ error init_partition(char* disk_name, int partition, uint32_t file_count){
 	addNewBlock(0, partition, 0);
 	addNewBlock(0, partition, 0);
 
+	removeLastBlock(0, partition, 0);
+
 	addFileEntryToTable(0, partition, 1024, TFS_REGULAR, 0); // TEST
 
 	// ##################### TESTS LECTURE ########################

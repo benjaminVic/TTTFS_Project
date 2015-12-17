@@ -33,6 +33,7 @@
 #define _CANNOT_REMOVE_FILE_ENTRY 14
 #define _PARTITION_IS_FULL 15
 #define _DIRECT_TAB_IS_FULL 16
+#define _DIRECT_TAB_IS_EMPTY 17
 
 // Définition des types
 typedef int error;
@@ -122,7 +123,6 @@ void printBlock(block b);
 //_________________________________________________________
 // Fonctions table des fichiers
 error initFilesTable(disk_id id, int partition);
-error initFreeBlockChain(disk_id id, int partition);
 
 error writeFileEntryToTable(disk_id, int partition, FILE_ENTRY file_ent, int file_pos);
 error readFileEntryFromTable(disk_id, int partition, FILE_ENTRY *file_ent, int file_pos);
@@ -133,9 +133,16 @@ error removeFileEntryInTable(disk_id id, int partition, int file_pos);
 void printFileEntry(FILE_ENTRY file_ent);
 
 //_________________________________________________________
+// Fonctions chainages blocs
+error initFreeBlockChain(disk_id id, int partition);
+error removeFirstBlockInChain(disk_id id, int partition);
+error addBlockInChain(disk_id id, int partition, int number);
+
+//_________________________________________________________
 // Fonctions entrées de fichier
 void initFileEntry(FILE_ENTRY *file_ent);
 error addNewBlock(disk_id id, int partition, int file_pos);
+error removeLastBlock(disk_id id, int partition, int file_pos);
 
 
 

@@ -132,7 +132,7 @@ error getFirstPartitionBlck(disk_id id, int partition, uint32_t *number){
 		return _DISK_UNMOUNTED;
 
 	// Récupération des informations du disque
-	readDiskInfos(0, &infDisk);
+	readDiskInfos(id, &infDisk);
 
 	// Vérification de l'existence de la partition
 	if(partition >= infDisk.nb_partitions)
@@ -155,7 +155,7 @@ error getPartitionSize(disk_id id, int partition, uint32_t *number){
 		return _DISK_UNMOUNTED;
 
 	// Récupération des informations du disque
-	readDiskInfos(0, &infDisk);
+	readDiskInfos(id, &infDisk);
 
 	// Vérification de l'existence de la partition
 	if(partition >= infDisk.nb_partitions)
@@ -170,7 +170,7 @@ error getFilesTableSize(disk_id id, int partition, uint32_t *number){
 	PARTITION_INFO infPartition;
 
 	// On récupère les informations de la partition
-	error read_infos_part = readPartitionInfos(0, &infPartition, partition);
+	error read_infos_part = readPartitionInfos(id, &infPartition, partition);
 	if(read_infos_part != 0){
 		return read_infos_part;
 	}
@@ -214,7 +214,7 @@ error readPartitionInfos(disk_id id, PARTITION_INFO *infPartition, int partition
 	if((_disks[id].flag & _MOUNTED) == 0)
 		return _DISK_UNMOUNTED;
 
-	error fst_blck = getFirstPartitionBlck(0, partition, &first_partition_blck);
+	error fst_blck = getFirstPartitionBlck(id, partition, &first_partition_blck);
 	if(fst_blck != 0){
 		return fst_blck;
 	}
@@ -319,6 +319,8 @@ char* strError(error err){
 		return "Plus aucun bloc n'est libre.";
 	if(err == _DIRECT_TAB_IS_FULL)
 		return "Il n'y à plus de place le tableau de blocs direct.";
+	if(err == _DIRECT_TAB_IS_EMPTY)
+		return "Le tableau de blocs direct est vide.";
 
 	return "Aucune erreur.";
 }
@@ -508,47 +510,6 @@ error initFilesTable(disk_id id, int partition){
 	return _NOERROR;
 }
 
-error initFreeBlockChain(disk_id id, int partition){
-	uint32_t size_table;
-	uint32_t first_partition_blck;
-	PARTITION_INFO infPartition;
-	block b;
-
-	error getSize = getFilesTableSize(id, partition, &size_table);
-	if(getSize != 0)
-		return getSize;
-
-	error fst_blck = getFirstPartitionBlck(0, partition, &first_partition_blck);
-	if(fst_blck != 0){
-		return fst_blck;
-	}
-
-	// Récupération des informations
-	error read_infos_part = readPartitionInfos(id, &infPartition, partition);
-	if(read_infos_part != 0)
-		return read_infos_part;
-
-	eraseBlock(b, 0, 256); // Mise à zero du bloc
-
-	// Chainage des blocs
-	int k = infPartition.TTTFS_VOLUME_FIRST_FREE_BLOCK;
-	for(int i=(first_partition_blck + k); i <= infPartition.TTTFS_VOLUME_BLOCK_COUNT; i++){
-		
-		if(i < infPartition.TTTFS_VOLUME_BLOCK_COUNT)
-			writeIntToBlock(b, 255, k+1);
-		else
-			writeIntToBlock(b, 255, k);
-
-		error write = write_block(id, b, i);
-		if(write != 0)
-			return write;
-
-		k++;
-	}
-
-	return _NOERROR;
-}
-
 error writeFileEntryToTable(disk_id id, int partition, FILE_ENTRY file_ent, int file_pos){
 	block b;
 	uint32_t size_table;
@@ -643,7 +604,7 @@ error addFileEntryToTable(disk_id id, int partition, int file_size, int file_typ
 		return _TABLE_IS_FULL;
 
 	// Lecture de la premiere entrée libre
-	error read_file_entry = readFileEntryFromTable(0, partition, &oldFileEntry, infPartition.TTTFS_VOLUME_FIRST_FREE_FILE);
+	error read_file_entry = readFileEntryFromTable(id, partition, &oldFileEntry, infPartition.TTTFS_VOLUME_FIRST_FREE_FILE);
 	if(read_file_entry != 0)
 		return read_file_entry;
 
@@ -656,7 +617,7 @@ error addFileEntryToTable(disk_id id, int partition, int file_size, int file_typ
 	newFileEntry.tfs_next_free = 0;
 
 	// Ecriture de la racine dans le premier emplacement libre de la table
-	error write_file_entry = writeFileEntryToTable(0, partition, newFileEntry, infPartition.TTTFS_VOLUME_FIRST_FREE_FILE);
+	error write_file_entry = writeFileEntryToTable(id, partition, newFileEntry, infPartition.TTTFS_VOLUME_FIRST_FREE_FILE);
 	if(write_file_entry != 0)
 		return write_file_entry;
 
@@ -698,7 +659,7 @@ error removeFileEntryInTable(disk_id id, int partition, int file_pos){
 	emptyFile.tfs_next_free = infPartition.TTTFS_VOLUME_FIRST_FREE_FILE;
 
 	// Ecriture de l'entrée libre
-	error write_file_entry = writeFileEntryToTable(0, partition, emptyFile, file_pos);
+	error write_file_entry = writeFileEntryToTable(id, partition, emptyFile, file_pos);
 	if(write_file_entry != 0)
 		return write_file_entry;
 
@@ -734,6 +695,120 @@ void printFileEntry(FILE_ENTRY file_ent){
 }
 
 // ##########################################################
+// Fonctions table des fichiers
+// ##########################################################
+
+error initFreeBlockChain(disk_id id, int partition){
+	uint32_t size_table;
+	uint32_t first_partition_blck;
+	PARTITION_INFO infPartition;
+	block b;
+
+	error getSize = getFilesTableSize(id, partition, &size_table);
+	if(getSize != 0)
+		return getSize;
+
+	error fst_blck = getFirstPartitionBlck(id, partition, &first_partition_blck);
+	if(fst_blck != 0){
+		return fst_blck;
+	}
+
+	// Récupération des informations
+	error read_infos_part = readPartitionInfos(id, &infPartition, partition);
+	if(read_infos_part != 0)
+		return read_infos_part;
+
+	eraseBlock(b, 0, 256); // Mise à zero du bloc
+
+	// Chainage des blocs
+	int k = infPartition.TTTFS_VOLUME_FIRST_FREE_BLOCK;
+	for(int i=(first_partition_blck + k); i <= infPartition.TTTFS_VOLUME_BLOCK_COUNT; i++){
+		
+		if(i < infPartition.TTTFS_VOLUME_BLOCK_COUNT)
+			writeIntToBlock(b, 255, k+1);
+		else
+			writeIntToBlock(b, 255, k);
+
+		error write = write_block(id, b, i);
+		if(write != 0)
+			return write;
+
+		k++;
+	}
+
+	return _NOERROR;
+}
+
+error addBlockInChain(disk_id id, int partition, int number){
+	uint32_t first_partition_blck;
+	uint32_t size_table;
+	PARTITION_INFO infPartition;
+	block b;
+
+	// Le premier bloc de la partition
+	error fst_blck = getFirstPartitionBlck(id, partition, &first_partition_blck);
+	if(fst_blck != 0){
+		return fst_blck;
+	}
+
+	// On récupère la taille de la table
+	error getSize = getFilesTableSize(id, partition, &size_table);
+	if(getSize != 0)
+		return getSize;
+
+	// Récupération des informations
+	readPartitionInfos(id, &infPartition, partition);
+
+	if((number < size_table) || (number >= infPartition.TTTFS_VOLUME_BLOCK_COUNT))
+		return _NUM_BLCK_TOO_BIG;
+
+	// Lecture du bloc pour le chainer avec le premier bloc de la chaine
+	int k = number + first_partition_blck;
+	read_block(id, b, k);
+	writeIntToBlock(b, 255, infPartition.TTTFS_VOLUME_FIRST_FREE_BLOCK);
+
+	infPartition.TTTFS_VOLUME_FIRST_FREE_BLOCK = number;
+	
+	infPartition.TTTFS_VOLUME_FREE_BLOCK_COUNT += 1;
+
+	// Réecriture du bloc et des informations de partition
+	writePartitionInfos(id, infPartition, partition);
+	write_block(id, b, k);	
+
+	return _NOERROR;
+}
+
+error removeFirstBlockInChain(disk_id id, int partition){
+	uint32_t first_partition_blck;
+	PARTITION_INFO infPartition;
+	block b;
+
+	// Le premier bloc de la partition
+	error fst_blck = getFirstPartitionBlck(id, partition, &first_partition_blck);
+	if(fst_blck != 0){
+		return fst_blck;
+	}
+
+	// Récupération des informations
+	readPartitionInfos(id, &infPartition, partition);
+
+	// Lecture du premier bloc de la chaine pour récupéré et effacer le dernier nombre (le prochain bloc libre)
+	int k = infPartition.TTTFS_VOLUME_FIRST_FREE_BLOCK + first_partition_blck;
+	read_block(id, b, k);
+	
+	infPartition.TTTFS_VOLUME_FIRST_FREE_BLOCK = readBlockToInt(b, 255);
+	writeIntToBlock(b, 255, 0);
+
+	infPartition.TTTFS_VOLUME_FREE_BLOCK_COUNT -= 1;
+
+	// Réecriture du bloc et des informations de partition
+	writePartitionInfos(id, infPartition, partition);
+	write_block(id, b, k);
+
+	return _NOERROR;
+}
+
+// ##########################################################
 // Fonctions entrées de fichier
 // ##########################################################
 
@@ -753,29 +828,19 @@ void initFileEntry(FILE_ENTRY *file_ent){
 
 error addNewBlock(disk_id id, int partition, int file_pos){
 	uint32_t size_table;
-	uint32_t first_partition_blck;
 	PARTITION_INFO infPartition;
 	FILE_ENTRY file;
-	block b;
 
 	// On récupère la taille de la table
 	error getSize = getFilesTableSize(id, partition, &size_table);
 	if(getSize != 0)
 		return getSize;
 
-	// Le premier bloc de la partition
-	error fst_blck = getFirstPartitionBlck(0, partition, &first_partition_blck);
-	if(fst_blck != 0){
-		return fst_blck;
-	}
-
 	if(file_pos >= 16 * size_table)
 		return _POS_IN_TABLE_TOO_BIG;
 
 	// Récupération des informations
-	error read_infos_part = readPartitionInfos(id, &infPartition, partition);
-	if(read_infos_part != 0)
-		return read_infos_part;
+	readPartitionInfos(id, &infPartition, partition);
 
 	if(infPartition.TTTFS_VOLUME_FREE_BLOCK_COUNT == 0)
 		return _PARTITION_IS_FULL;
@@ -797,22 +862,44 @@ error addNewBlock(disk_id id, int partition, int file_pos){
 	// Ecriture de l'entrée modifiée
 	writeFileEntryToTable(id, partition, file, file_pos);
 
-
-	// Lecture du bloc ajouté pour récupéré et effacer le dernier nombre (le prochain bloc libre)
-	int k = infPartition.TTTFS_VOLUME_FIRST_FREE_BLOCK + first_partition_blck;
-	read_block(id, b, k);
-	
-	infPartition.TTTFS_VOLUME_FIRST_FREE_BLOCK = readBlockToInt(b, 255);
-	writeIntToBlock(b, 255, 0);
-
-	infPartition.TTTFS_VOLUME_FREE_BLOCK_COUNT -= 1;
-
-	// Réecriture du bloc et des informations de partition
-	writePartitionInfos(id, infPartition, partition);
-	write_block(id, b, k);
+	// Suppression du premier bloc du chainage
+	removeFirstBlockInChain(id, partition);
 
 	return _NOERROR;
 }
 
+error removeLastBlock(disk_id id, int partition, int file_pos){
+	uint32_t size_table;
+	FILE_ENTRY file;
+
+	// On récupère la taille de la table
+	error getSize = getFilesTableSize(id, partition, &size_table);
+	if(getSize != 0)
+		return getSize;
+
+	if(file_pos >= 16 * size_table)
+		return _POS_IN_TABLE_TOO_BIG;
+
+	// On récupère l'entrée en question
+	readFileEntryFromTable(id, partition, &file, file_pos);
+
+	// On retire le dernier bloc direct
+	if(file.tfs_direct[0] == 0)
+		return _DIRECT_TAB_IS_EMPTY;
+
+	for(int i=1; i<10; i++){
+		if(file.tfs_direct[i] == 0){
+			addBlockInChain(id, partition, file.tfs_direct[i-1]);
+			file.tfs_direct[i-1] = 0;
+			break;
+		}
+	}
+
+	// Ecriture de l'entrée modifiée
+	writeFileEntryToTable(id, partition, file, file_pos);
+
+
+	return _NOERROR;
+}
 
 
