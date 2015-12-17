@@ -318,7 +318,7 @@ char* strError(error err){
 	if(err == _PARTITION_IS_FULL)
 		return "Plus aucun bloc n'est libre.";
 	if(err == _DIRECT_TAB_IS_FULL)
-		return "Il n'y à plus de place le tableau de blocs direct.";
+		return "Il n'y à plus de place dans le tableau de blocs direct.";
 	if(err == _DIRECT_TAB_IS_EMPTY)
 		return "Le tableau de blocs direct est vide.";
 
