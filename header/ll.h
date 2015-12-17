@@ -31,6 +31,8 @@
 #define _POS_IN_PARTITION_TOO_BIG 12
 #define _TABLE_IS_FULL 13
 #define _CANNOT_REMOVE_FILE_ENTRY 14
+#define _PARTITION_IS_FULL 15
+#define _DIRECT_TAB_IS_FULL 16
 
 // Définition des types
 typedef int error;
@@ -125,7 +127,7 @@ error initFreeBlockChain(disk_id id, int partition);
 error writeFileEntryToTable(disk_id, int partition, FILE_ENTRY file_ent, int file_pos);
 error readFileEntryFromTable(disk_id, int partition, FILE_ENTRY *file_ent, int file_pos);
 
-error addFileEntryToTable(disk_id id, int partition, FILE_ENTRY file_ent);
+error addFileEntryToTable(disk_id id, int partition, int file_size, int file_type, int file_subtype);
 error removeFileEntryInTable(disk_id id, int partition, int file_pos);
 
 void printFileEntry(FILE_ENTRY file_ent);
@@ -133,13 +135,7 @@ void printFileEntry(FILE_ENTRY file_ent);
 //_________________________________________________________
 // Fonctions entrées de fichier
 void initFileEntry(FILE_ENTRY *file_ent);
-void setNextFreeFile(FILE_ENTRY *file_ent, uint32_t next);
-void setTypeFile(FILE_ENTRY *file_ent, int type);
-void setSubTypeFile(FILE_ENTRY *file_ent, int subtype);
-void addDirectBlock(FILE_ENTRY *file_ent, uint32_t num);
-
-
-
+error addNewBlock(disk_id id, int partition, int file_pos);
 
 
 

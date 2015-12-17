@@ -120,7 +120,7 @@ error init_partition(char* disk_name, int partition, uint32_t file_count){
 		return write_desc_block;
 	}
 
-	printInfoPartition(infPartition);
+	//printInfoPartition(infPartition);
 
 	//______________________________________________________________________________
 	// Initialisation de la table des fichiers et du chainage des blocs libres
@@ -128,39 +128,39 @@ error init_partition(char* disk_name, int partition, uint32_t file_count){
 	initFreeBlockChain(0, partition);
 	//______________________________________________________________________________
 
-	// Création de l'entrée racine
-	FILE_ENTRY racine; 
-	initFileEntry(&racine);
-	setTypeFile(&racine, 1);
-	setSubTypeFile(&racine, 0);
-	//addDirectBlock(&racine, size_of_table+1);
-
 	// Ajout de l'entrée racine dans la table de la partition
-	addFileEntryToTable(0, partition, racine);
+	addFileEntryToTable(0, partition, 96, TFS_DIRECTORY, 0);
 
+	// Ajout d'un bloc de données dans l'entrée 0
+	addNewBlock(0, partition, 0);
+	addNewBlock(0, partition, 0);
+	addNewBlock(0, partition, 0);
+	addNewBlock(0, partition, 0);
+	addNewBlock(0, partition, 0);
 
-	// ##################### TESTS ########################
-	FILE_ENTRY testEntry; 
-	initFileEntry(&testEntry);
+	addFileEntryToTable(0, partition, 1024, TFS_REGULAR, 0); // TEST
 
-	addFileEntryToTable(0, partition, testEntry);
+	// ##################### TESTS LECTURE ########################
+	FILE_ENTRY racine;
+	FILE_ENTRY fichier;
+	readFileEntryFromTable(0, partition, &racine, 0);
+	readFileEntryFromTable(0, partition, &fichier, 1);
+	
 
 	// Suppression de l'entrée 0 de la table de la partition
-	//removeFileEntryInTable(0, partition, 1);
+	removeFileEntryInTable(0, partition, 1);
 
- 	
 	// Récupération des informations
 	error read_infos_part = readPartitionInfos(0, &infPartition, partition);
 	if(read_infos_part != 0)
 		return read_infos_part;
 	
-	//printInfoPartition(infPartition);
+	printInfoPartition(infPartition);
 
-	readFileEntryFromTable(0, partition, &racine, 0);
-	readFileEntryFromTable(0, partition, &testEntry, 1);
 
-	//printFileEntry(racine);
-	//printFileEntry(testEntry);
+
+	printFileEntry(racine);
+	//printFileEntry(fichier);
 	// ##############################################################
 
 /*
