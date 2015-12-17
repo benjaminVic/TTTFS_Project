@@ -120,8 +120,6 @@ error init_partition(char* disk_name, int partition, uint32_t file_count){
 		return write_desc_block;
 	}
 
-	//printInfoPartition(infPartition);
-
 	//______________________________________________________________________________
 	// Initialisation de la table des fichiers et du chainage des blocs libres
 	initFilesTable(0, partition);
@@ -130,42 +128,9 @@ error init_partition(char* disk_name, int partition, uint32_t file_count){
 
 	// Ajout de l'entrée racine dans la table de la partition
 	addFileEntryToTable(0, partition, 96, TFS_DIRECTORY, 0);
-
-	// Ajout d'un bloc de données dans l'entrée 0
-	addNewBlock(0, partition, 0);
-	addNewBlock(0, partition, 0);
-	addNewBlock(0, partition, 0);
-	addNewBlock(0, partition, 0);
+	// Ajout d'un bloc de données dans l'entrée 0 (Racine)
 	addNewBlock(0, partition, 0);
 
-	removeLastBlock(0, partition, 0);
-
-	addFileEntryToTable(0, partition, 1024, TFS_REGULAR, 0); // TEST
-
-	// ##################### TESTS LECTURE ########################
-	FILE_ENTRY racine;
-	FILE_ENTRY fichier;
-	readFileEntryFromTable(0, partition, &racine, 0);
-	readFileEntryFromTable(0, partition, &fichier, 1);
-	
-
-	// Suppression de l'entrée 0 de la table de la partition
-	removeFileEntryInTable(0, partition, 1);
-
-	// Récupération des informations
-	error read_infos_part = readPartitionInfos(0, &infPartition, partition);
-	if(read_infos_part != 0)
-		return read_infos_part;
-	
-	printInfoPartition(infPartition);
-
-
-
-	printFileEntry(racine);
-	//printFileEntry(fichier);
-	// ##############################################################
-
-/*
 	// Création des entrées de répertoire "." et ".." de la racine
 	DIR_ENTRY dot;
 	DIR_ENTRY double_dot;
@@ -179,25 +144,37 @@ error init_partition(char* disk_name, int partition, uint32_t file_count){
 	double_dot.name[1] = '.';
 	double_dot.name[2] = '\0';
 
+	FILE_ENTRY racine;
+	readFileEntryFromTable(0, partition, &racine, 0);
+
+	// Récupération des informations
+	error read_infos_part = readPartitionInfos(0, &infPartition, partition);
+	if(read_infos_part != 0)
+		return read_infos_part;
+	
+	printInfoPartition(infPartition);
+	printFileEntry(racine);
+
+
 	block b_racine;
 	// On tente de lire le block concernant le fichier 0 (la racine)
-	read_block(0, b_racine, infPartition.TTTFS_VOLUME_FIRST_FREE_BLOCK);
+	read_block(0, b_racine, (first_partition_blck + racine.tfs_direct[0]));
 
 	// Ecriture dans le block
 	writeDirEntryToBlock(b_racine, 0, dot);
 	writeDirEntryToBlock(b_racine, 1, double_dot);
 	// Ecriture du block sur le disque
-	write_block(0, b_racine, infPartition.TTTFS_VOLUME_FIRST_FREE_BLOCK);
+	write_block(0, b_racine, (first_partition_blck + racine.tfs_direct[0]));
 
 	//printBlock(b_racine);
 
 	//########## TEST LECTURE DIR ENTRY ############
 	DIR_ENTRY testEntry;
-	read_block(0, b_racine, infPartition.TTTFS_VOLUME_FIRST_FREE_BLOCK);
+	read_block(0, b_racine, (first_partition_blck + racine.tfs_direct[0]));
 	readBlockToDirEntry(b_racine, 1, &testEntry);
 	printf("%s\n", testEntry.name);
 	//##############################################
-*/
+
 
 	stop_disk(0);
 	return _NOERROR;
