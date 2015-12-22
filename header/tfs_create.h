@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 
 #define BLCK_SIZE 1024 // 1024 Octects
 #define MAX_SIZE 4294967295 // Nombre de blocks maximum (Taille du disque 2^32-1)

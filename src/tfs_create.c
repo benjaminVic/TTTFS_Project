@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include "../header/tfs_create.h"
+#include <stdint.h>
 
 int main(int argc, char *argv[]){
 	uint32_t size = 0;

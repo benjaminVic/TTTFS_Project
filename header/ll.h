@@ -1,3 +1,5 @@
+#include <stdint.h>
+
 #define MAX_OPEN_DISK 64
 #define BLCK_SIZE 1024 // 1024 Octects
 #define MAGIC_NUMBER 827541076 //(hex = 0x31534654)

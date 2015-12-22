@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include "../header/ll.h"
+#include <stdint.h>
 
 // Prototype des fonctions internes 
 //*****************************************************************************************
@@ -11,8 +12,8 @@
 // La différence résidera dans le fait qu'elles devront lire ou écrire un paquet de block, stockés dans un buffeur
 // pour accroitre les performances. Les deux autres, read_block et write_block, se contenteront de lire ou
 // ecrire dans le buffeur puis de le flush (avec l'appel à write_physical) quand il est plein. 
-error read_physical_block(disk_id id, block b, uint32_t num);
-error write_physical_block(disk_id id, block b, uint32_t num);
+//error read_physical_block(disk_id id, block b, uint32_t num);
+//error write_physical_block(disk_id id, block b, uint32_t num);
 //*****************************************************************************************
 
 
