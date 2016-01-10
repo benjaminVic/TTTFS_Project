@@ -1,11 +1,14 @@
 CC = gcc
-CFLAGS = -Wall
+CFLAGS = -Wall -std=c99 -Og
 
 SRC_PATH = src/
 HEADER_PATH = header/
 BIN_PATH = bin/
 
-all: tfs_create tfs_partition tfs_analyze tfs_format libll libtfs
+all: tfs_create tfs_partition tfs_analyze tfs_format tfs_mkdir libll libtfs
+
+tfs_mkdir: $(BIN_PATH)tfs_mkdir.o $(BIN_PATH)ll.o
+	$(CC) -o $(BIN_PATH)$@ $^
 
 tfs_create: $(BIN_PATH)tfs_create.o
 	$(CC) -o $(BIN_PATH)$@ $^
@@ -25,6 +28,7 @@ libll: $(BIN_PATH)ll.o
 libtfs: $(BIN_PATH)tfs.o
 	$(CC) -o $(BIN_PATH)$@.so -shared -fPIC $^
 
+tfs_mkdir.o: $(HEADER_PATH)tfs_mkdir.h
 tfs_create.o: $(HEADER_PATH)tfs_create.h
 tfs_partition.o: $(HEADER_PATH)tfs_partition.h
 tfs_analyze.o: $(HEADER_PATH)tfs_analyze.h
