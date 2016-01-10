@@ -20,4 +20,6 @@ echo '  > tfs_analyze ...'
 ln -s /opt/TTTFS/bin/tfs_analyze /usr/local/bin/tfs_analyze
 echo '  > tfs_format ...'
 ln -s /opt/TTTFS/bin/tfs_format /usr/local/bin/tfs_format
+echo '  > tfs_mkdir ...'
+ln -s /opt/TTTFS/bin/tfs_mkdir /usr/local/bin/tfs_mkdir
 echo '=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-='

@@ -20,4 +20,6 @@ echo '  > tfs_analyze ...'
 rm /usr/local/bin/tfs_analyze
 echo '  > tfs_format ...'
 rm /usr/local/bin/tfs_format
+echo '  > tfs_mkdir ...'
+rm /usr/local/bin/tfs_mkdir
 echo '=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-='

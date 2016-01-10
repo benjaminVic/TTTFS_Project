@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -std=c99 -Og
+CFLAGS = -Wall -std=gnu99 -Og
 
 SRC_PATH = src/
 HEADER_PATH = header/
