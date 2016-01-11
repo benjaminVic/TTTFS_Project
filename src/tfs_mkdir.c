@@ -59,6 +59,7 @@ void parse_path(char* path, char* host_location, int* partition, char* tfs_locat
   }
 }
 
+
 void test_parse_path()
 {
 	int partition= -1;
@@ -74,6 +75,104 @@ void test_parse_path()
 		partition, 
 		tfs_location);
 }
+
+
+DIR_ENTRY search_dir(block b, char* name)
+{
+  uint32_t file_pos= 0;
+	DIR_ENTRY dir_entry;
+
+	do
+	{
+		readBlockToDirEntry(b, file_pos, &dir_entry);
+		if(strcmp (dir_entry.name,  name) == 0)
+		{
+			return dir_entry;
+		}
+		file_pos++;
+	} while (dir_entry.name[0] != '\0');
+
+dir_entry.number = -1;
+
+	return dir_entry;
+}
+
+error add_new_dir(uint32_t partition, char * nom, uint32_t parent_file_pos)
+{	
+	// Récupération des informations
+	PARTITION_INFO infPartition;
+	error err = readPartitionInfos(0, &infPartition, partition);
+	if(err != 0)
+	{
+		fprintf(stderr, "Erreur %d: %s\n", err, strError(err));
+		stop_disk(0);
+		return err;
+	}
+
+	// recup le premier block de la partition
+	uint32_t first_partition_blck = 0;
+	err = getFirstPartitionBlck(0, partition, &first_partition_blck);
+	if(err != 0){
+		fprintf(stderr, "Erreur %d: %s\n", err, strError(err));
+		stop_disk(0);
+		return err;
+	}
+
+	uint32_t new_file_pos = infPartition.TTTFS_VOLUME_FIRST_FREE_FILE;
+	addFileEntryToTable(0, partition, new_file_pos, TFS_DIRECTORY, 2);
+	uint32_t new_block_pos= first_partition_blck + infPartition.TTTFS_VOLUME_FIRST_FREE_BLOCK;
+ 	addNewBlock(0, partition, new_block_pos);
+
+	DIR_ENTRY new_entry;
+	new_entry.number = new_file_pos;
+	strcpy(new_entry.name, nom);
+
+	FILE_ENTRY parent_file;
+	readFileEntryFromTable(0, partition, &parent_file, parent_file_pos);
+	FILE_ENTRY new_file;
+	readFileEntryFromTable(0, partition, &new_file   , new_file_pos   );
+
+	block       parent_block;
+	read_block(0, parent_block, (first_partition_blck + parent_file.tfs_direct[0]));
+	block  			new_block;
+	read_block(0, new_block,    (first_partition_blck + new_file.tfs_direct[0]   ));
+
+  // recherche du prochain emplacement libre
+	DIR_ENTRY dir_entry;
+  uint32_t file_pos= 0;
+  do
+	{
+		readBlockToDirEntry(parent_block, file_pos, &dir_entry);
+		file_pos++;
+	} while (dir_entry.name[0] != '\0');
+  file_pos--;
+
+	err = writeDirEntryToBlock(parent_block, file_pos, new_entry);
+	if(err != 0){
+		fprintf(stderr, "Erreur %d: %s\n", err, strError(err));
+		stop_disk(0);
+		return err;
+	}
+
+
+	write_block(0, parent_block, (first_partition_blck + parent_file.tfs_direct[0]   ) );
+
+
+	read_block(0, new_block, (first_partition_blck + new_file.tfs_direct[0]) );
+
+	DIR_ENTRY dot;
+	dot.number = new_file_pos;
+	sprintf(dot.name, ".");
+	writeDirEntryToBlock(new_block, 0, dot);
+
+	DIR_ENTRY double_dot;
+	double_dot.number = parent_file_pos;
+	sprintf(double_dot.name, "..");
+	writeDirEntryToBlock(new_block, 1, double_dot);
+
+	write_block(0, new_block, (first_partition_blck + new_file.tfs_direct[0]) );
+}
+
 
 
 int main(int argc, char *argv[])
@@ -126,78 +225,102 @@ int main(int argc, char *argv[])
 		return err;
 	}
 
+	// recup le premier block de la partition
+	err = getFirstPartitionBlck(0, partition, &first_partition_blck);
+	if(err != 0){
+		fprintf(stderr, "Erreur %d: %s\n", err, strError(err));
+		stop_disk(0);
+		return err;
+	}
 
 
 	printInfoPartition(infPartition);
 	
 
-	uint32_t new_block_n= infPartition.TTTFS_VOLUME_FIRST_FREE_BLOCK;
-	uint32_t new_file_n = infPartition.TTTFS_VOLUME_FIRST_FREE_FILE;
 
-	addFileEntryToTable(0, partition, 1, TFS_DIRECTORY, 0);
- 	addNewBlock(0, partition, new_block_n);
-
-	DIR_ENTRY new_entry;
-	new_entry.number = new_file_n;
-	sprintf(new_entry.name, "new_entry");
-
-	FILE_ENTRY  parent_f;
-	block 			parent_b;
+	FILE_ENTRY  parent_file;
+	block 			parent_block;
+	uint32_t 		parent_file_number=0;
+	FILE_ENTRY  file_entry;
 
 
-	uint32_t 		parent_f_n=0;
 
-	for(parent_f_n= 0; parent_f.name[0] != '\0'; parent_f_n++)
-	{
 
-		readFileEntryFromTable(0, partition, &parent_f, parent_f_n);
 
-		if(strcmp ( parent_f.name,  "balbal") ==  0)
+//
+
+	DIR_ENTRY   parent_dir_entry;
+	parent_dir_entry.number = 0; // racine
+	char* token = strtok(tfs_location, "/");
+	char dirname[240];
+
+	while(token != NULL) 
+  {
+		strcpy(dirname, token);
+		parent_file_number= parent_dir_entry.number;
+    
+		printf("token: %s, parent: %d number: %d\n", token, parent_file_number, parent_dir_entry.number);
+
+		readFileEntryFromTable(0, partition, &parent_file, parent_file_number);
+		read_block(0, parent_block, (first_partition_blck + parent_file.tfs_direct[0]));
+
+		parent_dir_entry = search_dir(parent_block, token);
+
+
+
+		printf("token: %s, parent: %d number: %d\n", token, parent_file_number, parent_dir_entry.number);
+
+
+		if(parent_dir_entry.number == -1)
 		{
-				read_block(0, parent_b, (first_partition_blck + parent_f.tfs_direct[0]));
-				writeDirEntryToBlock(b_racine, 2, new_entry);
-				write_block(0, b_racine, (first_partition_blck + parent_f.tfs_direct[0]));
+			token = strtok(NULL, "/");	
+		 	if(token == NULL)
+			{
+				add_new_dir(partition, dirname, parent_file_number);
+			}
+			else
+			{
+				fprintf(stderr, "Le dossier: %s n'existe pas.", dirname);
+			}
+			break;
 		}
-
+		token = strtok(NULL, "/");	
+		
+		if(token == NULL)
+		{
+			fprintf(stderr, "Le dossier: %s existe déjà.", dirname);
+			break;
+		}
 	}
 
-	DIR_ENTRY dot;
-	DIR_ENTRY double_dot;
 
-	dot.number = new_file_n;
-	sprintf(dot.name, ".");
+/*
 
-	double_dot.number = parent_file_n;
-	sprintf(double_dot.name, "..");
-
-	block 			new_block;
-	read_block(0, new_block, new_block_n);
-	writeDirEntryToBlock(new_block, 0, dot);
-	writeDirEntryToBlock(new_block, 1, double_dot);
-	write_block(0, new_block,  new_block_n);
-
-
-
-
+add_new_dir(partition, parent_block_n, new_block_n);
 
 
 
 	FILE_ENTRY tesst;
-	readFileEntryFromTable(0, partition, &tesst, 0);
-
+	readFileEntryFromTable(0, partition, &tesst,  new_file_n );
 
 
 
 	block b_test;
-	read_block(0,  b_test, new_block_n);
+	read_block(0,  b_test, new_block_n );
+
+*/
 
 
-	for(file_pos=0; file_pos < 10; file_pos++)
+	readFileEntryFromTable(0, partition, &parent_file, parent_dir_entry.number);
+	read_block(0, parent_block, (first_partition_blck + parent_file.tfs_direct[0]));
+
+
+	for(file_pos=0; file_pos < 8; file_pos++)
 	{
 
 DIR_ENTRY testEntry;
 
-			readBlockToDirEntry(b_test, file_pos, &testEntry);
+			readBlockToDirEntry(parent_block, file_pos, &testEntry);
 			printf("%s\n", testEntry.name);
 
 	
@@ -211,3 +334,8 @@ DIR_ENTRY testEntry;
 	stop_disk(0);
 	return _NOERROR;
 }
+
+
+
+
+
